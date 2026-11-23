@@ -57,6 +57,8 @@
   align-items: center;
   flex-shrink: 0;
   gap: 0;
+  /* 搜索、回缩两个按钮整体再靠右一点 */
+  margin-right: -4px;
 }
 
 .newChat {
@@ -113,12 +115,30 @@
 
 .list {
   height: 100%;
-  margin: 0 -2px;
-  padding: 0 2px;
+  /* 右侧多伸 4px，滚动条更贴近侧栏边缘 */
+  margin: 0 -6px 0 -2px;
+  padding: 0 6px 0 2px;
   /* 侧栏保持整屏高度后，补出键盘遮住的部分，列表内容才能滚到键盘上方 */
   padding-bottom: var(--app-keyboard-inset, 0px);
   overflow-y: auto;
-  scrollbar-color: var(--scroll-color) transparent;
+
+  /* 细窄、半透明、圆角的滚动条；轨道完全透明，不抢内容注意力 */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background-color: var(--scroll-color);
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scroll-color-hover);
+  }
 }
 
 .section {
@@ -232,7 +252,7 @@
   background: transparent;
   color: var(--dsw-alias-label-primary);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -417,7 +437,7 @@
 
   .bulkAction {
     height: 40px;
-    font-size: 1rem;
+    font-size: 0.875rem;
   }
 
   .bulkActionIconOnly {

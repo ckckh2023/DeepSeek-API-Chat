@@ -42,20 +42,29 @@
   line-height: calc(18px * var(--chat-font-scale));
 }
 
-/* 多选模式：左侧留出勾选圈的位置，标题整体右移 */
-.item.multi {
-  padding-left: calc(6px * var(--chat-font-scale));
-}
-
+/* 勾选圈常驻在行内，非多选时收缩为零；进入多选展开、退出收缩，
+   标题跟着 flex 布局平滑右移 / 左移，两个方向都有过渡 */
 .check {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: calc(18px * var(--chat-font-scale));
+  width: 0;
   height: calc(18px * var(--chat-font-scale));
-  margin-right: calc(6px * var(--chat-font-scale));
+  margin-right: 0;
+  overflow: hidden;
+  opacity: 0;
   color: var(--dsw-alias-label-tertiary);
+  transition:
+    width var(--ds-transition-duration) var(--ds-ease-in-out),
+    margin-right var(--ds-transition-duration) var(--ds-ease-in-out),
+    opacity var(--ds-transition-duration) var(--ds-ease-in-out);
+}
+
+.item.multi .check {
+  width: calc(18px * var(--chat-font-scale));
+  margin-right: calc(6px * var(--chat-font-scale));
+  opacity: 1;
 }
 
 .item.selected {

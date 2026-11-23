@@ -128,11 +128,9 @@ export const SessionItem = memo(function SessionItem({
         closeMobileSider()
       }}
     >
-      {multi ? (
-        <span className={styles.check}>
-          {selected ? <IconCircleChecked16 /> : <IconCircleOutline16 />}
-        </span>
-      ) : null}
+      <span className={styles.check}>
+        {multi && (selected ? <IconCircleChecked16 /> : <IconCircleOutline16 />)}
+      </span>
       <div className={styles.title}>{displayTitle}</div>
       {multi ? null : (
         <div className={styles.action} onClick={(event) => event.stopPropagation()}>

@@ -40,6 +40,7 @@ import { closeMobileSider } from '../components/sider/mobileSiderState.js'
 import { MobileSider, Sider } from '../components/sider/Sider.js'
 import { useSwipeDrawer } from '../components/sider/useSwipeDrawer.js'
 import { setupSystemBack } from './systemBack.js'
+import { setupMemoryAuto } from '../services/memory/run.js'
 import styles from './App.module.css'
 
 export const App = () => {
@@ -110,6 +111,9 @@ export const App = () => {
   }, [isMobile, ttsAutoPlay])
   // 移动端选中会话、切换布局后收起抽屉
   useEffect(closeMobileSider, [activeId, isMobile])
+
+  // 记忆的自动整理：先注册调度器与空闲定时器，再读列表（启动追赶就在 initChat 里发）
+  useEffect(setupMemoryAuto, [])
 
   useEffect(() => {
     void initChat()

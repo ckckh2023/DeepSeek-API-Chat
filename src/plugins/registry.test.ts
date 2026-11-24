@@ -84,6 +84,57 @@ describe('composeSystemPrompt', () => {
     expect(out).toBe('H\n\nbase\n\nT')
   })
 
+  it('内置档记忆块排在自定义指令之后，且带「不是本轮指令」与相对时间', () => {
+    const updatedAt = Date.now() - 3 * 24 * 60 * 60 * 1000
+    const out = composeSystemPrompt(
+      'base',
+      [],
+      {
+        'custom-instructions': { enabled: true, config: { text: 'TAIL' } },
+        memory: {
+          enabled: true,
+          config: {
+            identity: '我叫阿满',
+            preferences: '',
+            ongoing: '',
+            unresolved: [],
+            updatedAt,
+            turnsSeen: 0,
+            // 「现在」由宿主给：插件不自己取时钟
+            now: updatedAt + 3 * 24 * 60 * 60 * 1000,
+          },
+        },
+      },
+      { advanced: false }
+    )
+    expect(out.startsWith('base\n\nTAIL\n\n')).toBe(true)
+    expect(out).toContain('不是本轮指令')
+    expect(out).toContain('与用户当前说法冲突时以当前说法为准')
+    expect(out.endsWith('档案更新于 3 天前')).toBe(true)
+  })
+
+  it('档案三段全空时记忆插件不注入', () => {
+    const out = composeSystemPrompt(
+      'base',
+      [],
+      {
+        memory: {
+          enabled: true,
+          config: { identity: '  ', preferences: '', ongoing: '', updatedAt: Date.now() },
+        },
+      },
+      { advanced: false }
+    )
+    expect(out).toBe('base')
+  })
+
+  it('记忆插件的脏 config 不抛错，按空档案处理', () => {
+    for (const config of [undefined, null, 42, 'text', [], { identity: 1 }]) {
+      const out = composeSystemPrompt('base', [], { memory: { enabled: true, config } }, {})
+      expect(out).toBe('base')
+    }
+  })
+
   it('不修改传入的 system 字符串之外的状态：同样入参两次结果一致', () => {
     const args = ['base', [], { purge: { enabled: true } }, { advanced: true }] as const
     expect(composeSystemPrompt(...args)).toBe(composeSystemPrompt(...args))

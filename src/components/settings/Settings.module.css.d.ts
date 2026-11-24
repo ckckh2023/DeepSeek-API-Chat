@@ -28,6 +28,7 @@ declare const styles: {
   readonly "pluginEmptyDescription": string;
   readonly "pluginDialog": string;
   readonly "pluginDialogMain": string;
+  readonly "pluginDialogActions": string;
   readonly "pluginTextarea": string;
   readonly "pluginCounter": string;
   readonly "pluginHint": string;
@@ -35,6 +36,12 @@ declare const styles: {
   readonly "pluginPresetsLabel": string;
   readonly "pluginPresetList": string;
   readonly "pluginPresetButton": string;
+  readonly "memoryProfile": string;
+  readonly "memoryNotes": string;
+  readonly "memoryNote": string;
+  readonly "memoryNoteReply": string;
+  readonly "memoryAutoRow": string;
+  readonly "memoryNoteInput": string;
   readonly "importProgress": string;
   readonly "importProgressTrack": string;
   readonly "importProgressFill": string;

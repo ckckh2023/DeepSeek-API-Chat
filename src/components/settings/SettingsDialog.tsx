@@ -1,6 +1,7 @@
 import clsx from 'clsx'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
+  IconCopyOutline16,
   IconDataOutline16,
   IconDownloadOutline16,
   IconEditOutline16,
@@ -34,6 +35,18 @@ import {
 } from '../../services/settings.js'
 import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
 import { plugins, type PluginPreset, type PromptPlugin } from '../../plugins/index.js'
+import { renderProfileSections } from '../../plugins/memory/prompt.js'
+import {
+  addMemoryNote,
+  clearMemory,
+  readMemoryProfile,
+  readMemoryState,
+  setMemoryAutoEnabled,
+  type MemoryNote,
+} from '../../services/memory/store.js'
+import { isAutoPaused, requestAutoMemory } from '../../services/memory/scheduler.js'
+import { requestManualMemory } from '../../services/memory/run.js'
+import { copyText } from '../../utils/clipboard.js'
 import { Button } from '../base/Button.js'
 import { IconButton } from '../base/IconButton.js'
 import { Modal } from '../base/Modal.js'
@@ -257,7 +270,6 @@ const useHistoryDelete = () => {
   }
 }
 
-
 const LocaleSetting = () => {
   const t = useTranslate()
   const locale = useSettings((state) => state.locale)
@@ -442,47 +454,47 @@ const PLUGIN_PROMPT_LIMIT = 4000
 const readConfigText = (config: Record<string, unknown> | undefined): string =>
   typeof config?.text === 'string' ? config.text : ''
 
-
 /**
- * 编辑插件正文。
+ * 插件文本弹窗的骨架：Modal + 可选预设按钮 + textarea + 计数器 + 提示。
  *
- * 所有插件共用这一个弹窗：正文来自 config.text，没改过时显示 defaultText。
- * 保存时若与内置正文一致就写入空字符串，让插件继续回退到内置正文，避免固化旧版本。
- * 插件在 ui.presets 里声明预设时，顶部出现预设按钮，点一下把正文填进输入框。
+ * 取值与落盘由调用方给：正文弹窗落进 config.text，「记忆」落进自己的 localStorage 键。
+ * 骨架只负责一致性（同样的边框、计数器、提示位置），不假设正文存在哪。
  */
-const PluginPromptDialog = ({
+const PluginTextDialog = ({
   open,
-  name,
   title,
-  builtin,
-  initialText,
   hint,
   placeholder,
   presets,
+  limit = PLUGIN_PROMPT_LIMIT,
+  readText,
+  onSave,
   onClose,
 }: {
   open: boolean
-  name: string
   title: string
-  builtin: string
-  initialText: string
   hint: string
   placeholder?: string
   presets?: readonly PluginPreset[]
+  limit?: number
+  readText: () => string
+  onSave: (text: string) => void
   onClose: () => void
 }) => {
   const t = useTranslate()
   const { mounted, visible } = usePresence(open)
-  const [text, setText] = useState(initialText)
+  // 进 ref 而不是进依赖数组：readText 每次渲染都是新闭包，直接进依赖会让用户打字被覆盖
+  const readRef = useRef(readText)
+  readRef.current = readText
+  const [text, setText] = useState(() => readRef.current())
   useEffect(() => {
     if (open) {
-      setText(initialText)
+      setText(readRef.current())
     }
-  }, [open, initialText])
+  }, [open])
   if (!mounted) {
     return null
   }
-  const builtinText = builtin.trim()
   return (
     <Modal
       title={title}
@@ -498,8 +510,7 @@ const PluginPromptDialog = ({
           <Button
             size="m"
             onClick={() => {
-              const trimmed = text.slice(0, PLUGIN_PROMPT_LIMIT).trim()
-              setPluginConfig(name, { text: trimmed === builtinText ? '' : trimmed })
+              onSave(text)
               onClose()
             }}
           >
@@ -528,7 +539,7 @@ const PluginPromptDialog = ({
       <textarea
         className={styles.pluginTextarea}
         value={text}
-        maxLength={PLUGIN_PROMPT_LIMIT}
+        maxLength={limit}
         placeholder={placeholder}
         autoFocus
         onChange={(event) => setText(event.target.value)}
@@ -536,8 +547,239 @@ const PluginPromptDialog = ({
       <div className={styles.pluginCounter}>
         {t('pluginCustomInstructionsCounter', {
           count: text.length,
-          limit: PLUGIN_PROMPT_LIMIT,
+          limit,
         })}
+      </div>
+      <div className={styles.pluginHint}>{hint}</div>
+    </Modal>
+  )
+}
+
+/**
+ * 编辑插件正文：正文来自 config.text，没改过时显示 defaultText。
+ * 保存时若与内置正文一致就写入空字符串，让插件继续回退到内置正文，避免固化旧版本。
+ */
+const PluginPromptDialog = ({
+  open,
+  name,
+  title,
+  builtin,
+  initialText,
+  hint,
+  placeholder,
+  presets,
+  onClose,
+}: {
+  open: boolean
+  name: string
+  title: string
+  builtin: string
+  initialText: string
+  hint: string
+  placeholder?: string
+  presets?: readonly PluginPreset[]
+  onClose: () => void
+}) => {
+  const builtinText = builtin.trim()
+  return (
+    <PluginTextDialog
+      open={open}
+      title={title}
+      hint={hint}
+      placeholder={placeholder}
+      presets={presets}
+      readText={() => initialText}
+      onSave={(text) => {
+        const trimmed = text.slice(0, PLUGIN_PROMPT_LIMIT).trim()
+        setPluginConfig(name, { text: trimmed === builtinText ? '' : trimmed })
+      }}
+      onClose={onClose}
+    />
+  )
+}
+
+/**
+ * 手动整理被挡住时的提示。`busy` 不算错误：自动整理正跑着，等它跑完就自然好了。
+ */
+const BLOCKED_TOAST: Record<
+  'no-key' | 'no-session' | 'busy' | 'unexpected',
+  { readonly key: TranslationKey; readonly type?: 'error' }
+> = {
+  'no-key': { key: 'pluginMemoryDeriveNoKey', type: 'error' },
+  'no-session': { key: 'pluginMemoryNoSession', type: 'error' },
+  // 自动整理正跑着：不是错误，等它跑完就好
+  busy: { key: 'pluginMemoryDeriving' },
+  unexpected: { key: 'pluginMemoryDeriveFailed', type: 'error' },
+}
+
+/**
+ * 记忆档案弹窗：**只读**档案 + 便条输入 + 三个动作。
+ *
+ * spec《便条》的立场：用户不能直接改档案。直接改会和下次重写打架 —— 用户改掉的一句，
+ * 模型重写时可能又丢回去，而且用户会以为自己改成功了。便条是**输入**不是**输出**，
+ * 不会丢：下次整理必须逐条回应。
+ *
+ * 三个动作：复制档案（只读视图的顺手操作，不构成写入路径）、立即整理、清空全部记忆。
+ * 整理进行中把按钮置灰，连点第二次直接返回，不并发两个整理。
+ */
+const MemoryProfileDialog = ({
+  open,
+  title,
+  hint,
+  onClose,
+}: {
+  open: boolean
+  title: string
+  hint: string
+  onClose: () => void
+}) => {
+  const t = useTranslate()
+  // 不再订阅 activeId：调度器在真正发起整理的那一刻现取「当前会话」，切了也不会打错
+  const [busy, setBusy] = useState(false)
+  const [profileText, setProfileText] = useState('')
+  const [notes, setNotes] = useState<readonly MemoryNote[]>([])
+  const [draft, setDraft] = useState('')
+  const [autoEnabled, setAutoEnabled] = useState(true)
+  const [failures, setFailures] = useState(0)
+  const { mounted, visible } = usePresence(open)
+
+  const reload = () => {
+    const memory = readMemoryState()
+    setProfileText(renderProfileSections(readMemoryProfile()))
+    setNotes(memory.notes)
+    setAutoEnabled(memory.autoEnabled)
+    setFailures(memory.failures)
+  }
+  useEffect(() => {
+    if (open) {
+      reload()
+    }
+  }, [open])
+
+  const derive = async () => {
+    if (busy) {
+      return
+    }
+    setBusy(true)
+    try {
+      const result = await requestManualMemory()
+      if (result.blocked !== undefined) {
+        showToast(BLOCKED_TOAST[result.blocked])
+      } else if (result.outcome.status === 'updated') {
+        showToast({ key: 'pluginMemoryDerived' })
+      } else if (result.outcome.status === 'failed') {
+        showToast({ key: 'pluginMemoryDeriveFailed', type: 'error' })
+      } else {
+        showToast({ key: 'pluginMemoryNothingPending' })
+      }
+      // 手动整理成功会清零失败计数，退避随之解除 —— 重读一次让提示立刻消失
+      reload()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const addNote = () => {
+    if (!addMemoryNote(draft, Date.now())) {
+      return
+    }
+    setDraft('')
+    reload()
+    showToast({ key: 'pluginMemoryNoteAdded' })
+  }
+
+  if (!mounted) {
+    return null
+  }
+  return (
+    <Modal
+      title={title}
+      className={styles.pluginDialog}
+      mainClassName={styles.pluginDialogMain}
+      state={visible ? 'open' : 'closed'}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="outlined" size="m" onClick={onClose}>
+            {t('close')}
+          </Button>
+          <Button variant="outlined" size="m" disabled={busy} onClick={() => void derive()}>
+            {t(busy ? 'pluginMemoryDeriving' : 'pluginMemoryDeriveNow')}
+          </Button>
+          <Button
+            variant="dangerOutlined"
+            size="m"
+            disabled={busy}
+            onClick={() => {
+              clearMemory()
+              reload()
+              showToast({ key: 'pluginMemoryCleared' })
+            }}
+          >
+            {t('pluginMemoryClear')}
+          </Button>
+        </>
+      }
+    >
+      <div className={styles.pluginSectionTitle}>
+        <span>{t('pluginMemoryProfileTitle')}</span>
+        <IconButton
+          size="xs"
+          icon={<IconCopyOutline16 />}
+          tooltip={t('pluginMemoryCopyProfile')}
+          onClick={() => {
+            void copyText(profileText).then((ok) => {
+              showToast(ok ? { key: 'copied' } : { key: 'copyFailed', type: 'error' })
+            })
+          }}
+        />
+      </div>
+      <div className={styles.memoryProfile}>{profileText || t('pluginMemoryProfileEmpty')}</div>
+      <div className={styles.pluginSectionTitle}>{t('pluginMemoryNotesTitle')}</div>
+      {notes.length > 0 ? (
+        <ul className={styles.memoryNotes}>
+          {notes.map((note) => (
+            <li key={note.id} className={styles.memoryNote}>
+              <span>{note.text}</span>
+              {note.reply ? <span className={styles.memoryNoteReply}>{note.reply}</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className={styles.pluginDescription}>{t('pluginMemoryNotesEmpty')}</div>
+      )}
+      <div className={styles.memoryAutoRow}>
+        <Switch
+          aria-label={t('pluginMemoryAutoLabel')}
+          checked={autoEnabled}
+          onChange={(enabled) => {
+            setMemoryAutoEnabled(enabled)
+            setAutoEnabled(enabled)
+            // 刚打开时立刻试一次：不用等到攒够 8 轮或等满 5 分钟空闲
+            if (enabled) {
+              requestAutoMemory('opened')
+            }
+          }}
+        />
+        <div>
+          <div className={styles.pluginSectionTitle}>{t('pluginMemoryAutoLabel')}</div>
+          <div className={styles.pluginDescription}>{t('pluginMemoryAutoDescription')}</div>
+        </div>
+      </div>
+      {isAutoPaused(failures) ? (
+        <div className={styles.pluginDescription}>{t('pluginMemoryAutoPaused')}</div>
+      ) : null}
+      <div className={styles.memoryNoteInput}>
+        <textarea
+          className={styles.pluginTextarea}
+          value={draft}
+          rows={2}
+          placeholder={t('pluginMemoryNotePlaceholder')}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <Button size="m" disabled={busy || !draft.trim()} onClick={addNote}>
+          {t('pluginMemoryNoteAdd')}
+        </Button>
       </div>
       <div className={styles.pluginHint}>{hint}</div>
     </Modal>
@@ -560,20 +802,33 @@ const PluginToggleCell = ({ plugin }: { plugin: PromptPlugin }) => {
   const builtin = plugin.defaultText ?? ''
   const initialText = readConfigText(state?.config) || builtin
   const editable = plugin.ui?.editable === true
+  const profileEditor = plugin.ui?.editor === 'profile'
+  const tooltipKey = (plugin.ui?.tooltipKey ?? 'pluginPromptEditNamed') as TranslationKey
+  const [profileOpen, setProfileOpen] = useState(false)
+  /**
+   * 自动整理被暂停时在插件行上直说。
+   *
+   * spec 要求「在设置页提示」，只藏在档案弹窗里等于没说：不点进去的人不知道自己被暂停了。
+   * 这里在渲染时读一次本地状态（不订阅）：设置页每次打开都会重新挂载，够新；
+   * 停在设置页期间正好被暂停的概率很低，那一点旧值不值得为它引入一套订阅。
+   */
+  const showPaused = profileEditor && isAutoPaused(readMemoryState().failures)
   return (
     <>
       <SettingCell
         label={label}
-        description={descriptionKey ? t(descriptionKey) : null}
+        description={
+          showPaused ? t('pluginMemoryAutoPaused') : descriptionKey ? t(descriptionKey) : null
+        }
         status={null}
         action={
           <div className={styles.pluginActions}>
-            {editable ? (
+            {editable || profileEditor ? (
               <IconButton
                 size="xs"
                 icon={<IconEditOutline16 />}
-                tooltip={t('pluginPromptEditNamed', { name: label })}
-                onClick={() => setEditorOpen(true)}
+                tooltip={t(tooltipKey, { name: label })}
+                onClick={() => (profileEditor ? setProfileOpen(true) : setEditorOpen(true))}
               />
             ) : null}
             <Switch
@@ -584,7 +839,7 @@ const PluginToggleCell = ({ plugin }: { plugin: PromptPlugin }) => {
           </div>
         }
       />
-      {editable ? (
+      {editable && !profileEditor ? (
         <PluginPromptDialog
           open={editorOpen}
           name={plugin.name}
@@ -595,6 +850,14 @@ const PluginToggleCell = ({ plugin }: { plugin: PromptPlugin }) => {
           placeholder={placeholderKey ? t(placeholderKey) : undefined}
           presets={plugin.ui?.presets}
           onClose={() => setEditorOpen(false)}
+        />
+      ) : null}
+      {profileEditor ? (
+        <MemoryProfileDialog
+          open={profileOpen}
+          title={t('pluginPromptDialogTitle', { name: label })}
+          hint={t(hintKey)}
+          onClose={() => setProfileOpen(false)}
         />
       ) : null}
     </>
@@ -733,7 +996,6 @@ const ImportHistory = ({
     />
   )
 }
-
 
 /** 读取 Blob 为 base64（Capacitor 的 Filesystem 只接受 base64 字符串） */
 const blobToBase64 = (blob: Blob) =>

@@ -100,21 +100,19 @@ export const deriveMemoryForSession = async (
   if (!apiKey) {
     return { blocked: 'no-key' }
   }
-  // 欢迎页（没有活动会话）时不算「缺 Key」：没有东西可整理而已
-  if (sessionId === null) {
-    return { blocked: 'no-session' }
-  }
-  const session = await readSession(sessionId)
-  if (!session) {
-    return { blocked: 'no-session' }
-  }
   // 读一次就够：水位、便条、失败计数都来自同一份快照，避免三次读之间被写
   const state = readMemoryState()
+  const hasOpenNotes = state.notes.some((note) => note.resolvedAt === undefined)
+  // 没有会话时，只有「还有未回应的便条」值得发请求：让模型把便条处理掉
+  const session = sessionId === null ? undefined : await readSession(sessionId)
+  if (!session && !hasOpenNotes) {
+    return { blocked: 'no-session' }
+  }
   const outcome = await deriveProfile({
     profile: readMemoryProfile(),
     notes: state.notes,
-    messages: collectTurns(session),
-    processedCount: state.watermarks[sessionId]?.processedCount ?? 0,
+    messages: session ? collectTurns(session) : [],
+    processedCount: session ? (state.watermarks[session.id]?.processedCount ?? 0) : 0,
     failures: state.failures,
     now: Date.now(),
     send: (request) => sendWithTimeout(apiKey, request),
@@ -130,10 +128,16 @@ export const deriveMemoryForSession = async (
     writeMemoryState({
       ...fresh,
       notes: mergeNotes(fresh.notes, outcome.notes),
-      watermarks: {
-        ...fresh.watermarks,
-        [sessionId]: { processedCount: outcome.processedCount, at: outcome.profile.updatedAt },
-      },
+      // 只整理便条时没有会话可记水位，别给 null 造一条记录
+      watermarks: session
+        ? {
+            ...fresh.watermarks,
+            [session.id]: {
+              processedCount: outcome.processedCount,
+              at: outcome.profile.updatedAt,
+            },
+          }
+        : fresh.watermarks,
       failures: 0,
       lastDerivedAt: outcome.profile.updatedAt,
     })

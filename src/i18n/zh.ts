@@ -170,20 +170,26 @@ export const zh = {
   pluginPurgeDescription:
     '开启后，在每次请求的 System 末尾追加兜底规则，可以压掉首轮的推脱、免责声明与自我弱化。',
 
-  pluginMemoryLabel: '记忆',
+  pluginMemoryLabel: '全局记忆',
   pluginMemoryDescription:
-    '开启后，在每次请求的 System 末尾注入一份跨会话档案（我是谁、偏好与禁忌、进行中的事），让它不用每轮重新交代。',
-  pluginMemoryHint:
-    '档案只存在本机，三端不互通。你在这里只能写便条：档案由整理环节重写，便条会被逐条回应。',
+    '开启后，在每次请求的 System 末尾注入一份全局会话档案，包括但不限于我是谁、偏好与禁忌、进行中的事件，让 DeepSeek 更了解你，但是会加速余额消耗。',
+
   pluginMemoryEdit: '查看档案',
   pluginMemoryProfileTitle: '当前档案',
   pluginMemoryCopyProfile: '复制档案',
-  pluginMemoryProfileEmpty: '还没有档案。聊几轮后点「立即整理」生成，或直接写便条纠正。',
+  pluginMemoryProfileEmpty: '目前没有任何关于你的记忆档案。',
+  pluginMemoryProfileIntro: '由 DeepSeek 定期整理的全局记忆档案，让 DeepSeek 越聊越懂你。',
   pluginMemoryNotesTitle: '便条',
-  pluginMemoryNotesEmpty: '没有便条。发现记错了就写一条，下次整理必须逐条回应。',
+  pluginMemoryNotesEmpty: '目前没有任何你写下的便条。',
+  pluginMemoryNotesIntro: '由你写下的记忆档案纠正意见，会在下次整理时被逐条回应。',
+  pluginMemoryClearConfirmTitle: '清空全部记忆？',
+  pluginMemoryClearConfirmDescription: '档案和所有便条都会被删除，且无法恢复。',
+  pluginMemoryClearConfirm: '确认清空',
   pluginMemoryNotePlaceholder: '例如：我不在上海了，搬到杭州了。',
   pluginMemoryNoteAdd: '添加便条',
   pluginMemoryNoteAdded: '便条已添加，下次整理会回应',
+  pluginMemoryNoteDelete: '删除便条',
+  pluginMemoryNoteRead: '已读',
   pluginMemoryDeriveNow: '立即整理',
   pluginMemoryDeriving: '整理中…',
   pluginMemoryClear: '清空全部记忆',
@@ -194,8 +200,7 @@ export const zh = {
   pluginMemoryNothingPending: '没有待整理的轮次',
   pluginMemoryCleared: '记忆已清空',
   pluginMemoryAutoLabel: '自动整理',
-  pluginMemoryAutoDescription:
-    '聊够 8 轮、或停止聊天 5 分钟后在后台整理；打开应用时补上没整理的轮次。关掉后只能手动整理。',
+
   pluginMemoryAutoPaused: '连续整理失败，已暂停自动整理。点「立即整理」试一次即可恢复。',
 
   pluginSectionBuiltin: '内置插件',

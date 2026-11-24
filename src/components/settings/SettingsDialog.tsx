@@ -1,12 +1,14 @@
 import clsx from 'clsx'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
+  IconAddOutline16,
   IconCopyOutline16,
   IconDataOutline16,
   IconDownloadOutline16,
   IconEditOutline16,
   IconPluginOutline16,
   IconSettingsOutline16,
+  IconTrashOutline16,
   IconUploadOutline14,
 } from '../base/icons.js'
 import {
@@ -41,6 +43,7 @@ import {
   clearMemory,
   readMemoryProfile,
   readMemoryState,
+  removeMemoryNote,
   setMemoryAutoEnabled,
   type MemoryNote,
 } from '../../services/memory/store.js'
@@ -613,7 +616,124 @@ const BLOCKED_TOAST: Record<
 }
 
 /**
- * 记忆档案弹窗：**只读**档案 + 便条输入 + 三个动作。
+ * 添加便条的二级弹窗：单行输入，确认后交给 addNote。
+ * 返回键只关这一层（后注册的优先），档案弹窗在它下面。
+ */
+const MemoryNoteDialog = ({
+  open,
+  onAdd,
+  onClose,
+}: {
+  open: boolean
+  onAdd: (text: string) => void
+  onClose: () => void
+}) => {
+  const t = useTranslate()
+  const { mounted, visible } = usePresence(open)
+  const [text, setText] = useState('')
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+
+  useEffect(() => {
+    if (open) {
+      setText('')
+    }
+  }, [open])
+  useEffect(() => {
+    if (!mounted) {
+      return
+    }
+    return pushBackHandler(() => closeRef.current())
+  }, [mounted])
+
+  if (!mounted) {
+    return null
+  }
+  return (
+    <Modal
+      title={t('pluginMemoryNoteAdd')}
+      className={styles.pluginDialog}
+      mainClassName={styles.pluginDialogMain}
+      state={visible ? 'open' : 'closed'}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="outlined" size="m" onClick={onClose}>
+            {t('cancel')}
+          </Button>
+          <Button
+            size="m"
+            disabled={!text.trim()}
+            onClick={() => {
+              onAdd(text)
+              onClose()
+            }}
+          >
+            {t('confirm')}
+          </Button>
+        </>
+      }
+    >
+      <textarea
+        className={styles.pluginTextarea}
+        value={text}
+        placeholder={t('pluginMemoryNotePlaceholder')}
+        autoFocus
+        onChange={(event) => setText(event.target.value)}
+      />
+    </Modal>
+  )
+}
+
+/** 清空全部记忆的二次确认，复用导入确认的弹窗样式 */
+const MemoryClearConfirm = ({
+  open,
+  onConfirm,
+  onClose,
+}: {
+  open: boolean
+  onConfirm: () => void
+  onClose: () => void
+}) => {
+  const t = useTranslate()
+  const { mounted, visible } = usePresence(open)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+
+  useEffect(() => {
+    if (!mounted) {
+      return
+    }
+    return pushBackHandler(() => closeRef.current())
+  }, [mounted])
+
+  if (!mounted) {
+    return null
+  }
+  return (
+    <Modal
+      title={t('pluginMemoryClearConfirmTitle')}
+      className={styles.importConfirm}
+      state={visible ? 'open' : 'closed'}
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="outlined" size="m" autoFocus onClick={onClose}>
+            {t('cancel')}
+          </Button>
+          <Button variant="dangerOutlined" size="m" onClick={onConfirm}>
+            {t('pluginMemoryClearConfirm')}
+          </Button>
+        </>
+      }
+    >
+      <div className={styles.importConfirmText}>{t('pluginMemoryClearConfirmDescription')}</div>
+    </Modal>
+  )
+}
+
+/**
+ * 记忆档案弹窗：**只读**档案 + 便条列表 + 三个动作。
  *
  * spec《便条》的立场：用户不能直接改档案。直接改会和下次重写打架 —— 用户改掉的一句，
  * 模型重写时可能又丢回去，而且用户会以为自己改成功了。便条是**输入**不是**输出**，
@@ -630,7 +750,7 @@ const MemoryProfileDialog = ({
 }: {
   open: boolean
   title: string
-  hint: string
+  hint?: string
   onClose: () => void
 }) => {
   const t = useTranslate()
@@ -638,10 +758,13 @@ const MemoryProfileDialog = ({
   const [busy, setBusy] = useState(false)
   const [profileText, setProfileText] = useState('')
   const [notes, setNotes] = useState<readonly MemoryNote[]>([])
-  const [draft, setDraft] = useState('')
+  const [noteOpen, setNoteOpen] = useState(false)
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
   const [autoEnabled, setAutoEnabled] = useState(true)
   const [failures, setFailures] = useState(0)
   const { mounted, visible } = usePresence(open)
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
 
   const reload = () => {
     const memory = readMemoryState()
@@ -653,6 +776,9 @@ const MemoryProfileDialog = ({
   useEffect(() => {
     if (open) {
       reload()
+    } else {
+      setNoteOpen(false)
+      setClearConfirmOpen(false)
     }
   }, [open])
 
@@ -679,14 +805,21 @@ const MemoryProfileDialog = ({
     }
   }
 
-  const addNote = () => {
-    if (!addMemoryNote(draft, Date.now())) {
+  const addNote = (text: string) => {
+    if (!addMemoryNote(text, Date.now())) {
       return
     }
-    setDraft('')
     reload()
     showToast({ key: 'pluginMemoryNoteAdded' })
   }
+
+  // 供二级弹窗使用：返回键先关便条弹窗，再关档案弹窗
+  useEffect(() => {
+    if (!mounted) {
+      return
+    }
+    return pushBackHandler(() => closeRef.current())
+  }, [mounted])
 
   if (!mounted) {
     return null
@@ -700,9 +833,6 @@ const MemoryProfileDialog = ({
       onClose={onClose}
       footer={
         <>
-          <Button variant="outlined" size="m" onClick={onClose}>
-            {t('close')}
-          </Button>
           <Button variant="outlined" size="m" disabled={busy} onClick={() => void derive()}>
             {t(busy ? 'pluginMemoryDeriving' : 'pluginMemoryDeriveNow')}
           </Button>
@@ -710,78 +840,115 @@ const MemoryProfileDialog = ({
             variant="dangerOutlined"
             size="m"
             disabled={busy}
-            onClick={() => {
-              clearMemory()
-              reload()
-              showToast({ key: 'pluginMemoryCleared' })
-            }}
+            onClick={() => setClearConfirmOpen(true)}
           >
             {t('pluginMemoryClear')}
+          </Button>
+          <Button variant="outlined" size="m" onClick={onClose}>
+            {t('close')}
           </Button>
         </>
       }
     >
-      <div className={styles.pluginSectionTitle}>
+      <div className={clsx(styles.pluginSectionTitle, styles.pluginSectionTitleRow)}>
         <span>{t('pluginMemoryProfileTitle')}</span>
-        <IconButton
-          size="xs"
-          icon={<IconCopyOutline16 />}
-          tooltip={t('pluginMemoryCopyProfile')}
-          onClick={() => {
-            void copyText(profileText).then((ok) => {
-              showToast(ok ? { key: 'copied' } : { key: 'copyFailed', type: 'error' })
-            })
-          }}
-        />
+        <div className={styles.memoryAutoControl}>
+          <span>{t('pluginMemoryAutoLabel')}</span>
+          <Switch
+            aria-label={t('pluginMemoryAutoLabel')}
+            checked={autoEnabled}
+            onChange={(enabled) => {
+              setMemoryAutoEnabled(enabled)
+              setAutoEnabled(enabled)
+              // 刚打开时立刻试一次：不用等到攒够 8 轮或等满 5 分钟空闲
+              if (enabled) {
+                requestAutoMemory('opened')
+              }
+            }}
+          />
+        </div>
       </div>
-      <div className={styles.memoryProfile}>{profileText || t('pluginMemoryProfileEmpty')}</div>
-      <div className={styles.pluginSectionTitle}>{t('pluginMemoryNotesTitle')}</div>
+      <div className={styles.memoryProfileWrap}>
+        <div
+          className={clsx(
+            styles.memoryProfile,
+            profileText ? styles.memoryProfileWithCopy : styles.memoryProfileEmpty
+          )}
+          tabIndex={profileText ? 0 : undefined}
+        >
+          {profileText || t('pluginMemoryProfileEmpty')}
+        </div>
+        {profileText ? (
+          <IconButton
+            className={styles.memoryProfileCopy}
+            size="xs"
+            icon={<IconCopyOutline16 />}
+            tooltip={t('pluginMemoryCopyProfile')}
+            onClick={() => {
+              void copyText(profileText).then((ok) => {
+                showToast(ok ? { key: 'copied' } : { key: 'copyFailed', type: 'error' })
+              })
+            }}
+          />
+        ) : null}
+      </div>
+      <div className={styles.memoryIntro}>{t('pluginMemoryProfileIntro')}</div>
+      <div className={clsx(styles.pluginSectionTitle, styles.pluginSectionTitleRow)}>
+        <span>{t('pluginMemoryNotesTitle')}</span>
+        <div className={styles.memoryNoteAdd}>
+          <span>{t('pluginMemoryNoteAdd')}</span>
+          <IconButton
+            size="xs"
+            icon={<IconAddOutline16 />}
+            tooltip={t('pluginMemoryNoteAdd')}
+            onClick={() => setNoteOpen(true)}
+          />
+        </div>
+      </div>
       {notes.length > 0 ? (
         <ul className={styles.memoryNotes}>
           {notes.map((note) => (
             <li key={note.id} className={styles.memoryNote}>
-              <span>{note.text}</span>
-              {note.reply ? <span className={styles.memoryNoteReply}>{note.reply}</span> : null}
+              <span className={styles.memoryNoteText}>
+                {note.reply ? (
+                  <span className={styles.memoryNoteRead}>{t('pluginMemoryNoteRead')}</span>
+                ) : null}
+                <span>{note.text}</span>
+              </span>
+              <IconButton
+                className={styles.memoryNoteDelete}
+                size="xs"
+                icon={<IconTrashOutline16 />}
+                tooltip={t('pluginMemoryNoteDelete')}
+                onClick={() => {
+                  removeMemoryNote(note.id)
+                  reload()
+                }}
+              />
             </li>
           ))}
         </ul>
       ) : (
-        <div className={styles.pluginDescription}>{t('pluginMemoryNotesEmpty')}</div>
-      )}
-      <div className={styles.memoryAutoRow}>
-        <Switch
-          aria-label={t('pluginMemoryAutoLabel')}
-          checked={autoEnabled}
-          onChange={(enabled) => {
-            setMemoryAutoEnabled(enabled)
-            setAutoEnabled(enabled)
-            // 刚打开时立刻试一次：不用等到攒够 8 轮或等满 5 分钟空闲
-            if (enabled) {
-              requestAutoMemory('opened')
-            }
-          }}
-        />
-        <div>
-          <div className={styles.pluginSectionTitle}>{t('pluginMemoryAutoLabel')}</div>
-          <div className={styles.pluginDescription}>{t('pluginMemoryAutoDescription')}</div>
+        <div className={clsx(styles.memoryProfile, styles.memoryProfileEmpty)}>
+          {t('pluginMemoryNotesEmpty')}
         </div>
-      </div>
+      )}
+      <div className={styles.memoryIntro}>{t('pluginMemoryNotesIntro')}</div>
       {isAutoPaused(failures) ? (
         <div className={styles.pluginDescription}>{t('pluginMemoryAutoPaused')}</div>
       ) : null}
-      <div className={styles.memoryNoteInput}>
-        <textarea
-          className={styles.pluginTextarea}
-          value={draft}
-          rows={2}
-          placeholder={t('pluginMemoryNotePlaceholder')}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        <Button size="m" disabled={busy || !draft.trim()} onClick={addNote}>
-          {t('pluginMemoryNoteAdd')}
-        </Button>
-      </div>
-      <div className={styles.pluginHint}>{hint}</div>
+      <MemoryNoteDialog open={noteOpen} onAdd={addNote} onClose={() => setNoteOpen(false)} />
+      <MemoryClearConfirm
+        open={clearConfirmOpen}
+        onClose={() => setClearConfirmOpen(false)}
+        onConfirm={() => {
+          clearMemory()
+          reload()
+          showToast({ key: 'pluginMemoryCleared' })
+          setClearConfirmOpen(false)
+        }}
+      />
+      {hint ? <div className={styles.pluginHint}>{hint}</div> : null}
     </Modal>
   )
 }
@@ -856,7 +1023,7 @@ const PluginToggleCell = ({ plugin }: { plugin: PromptPlugin }) => {
         <MemoryProfileDialog
           open={profileOpen}
           title={t('pluginPromptDialogTitle', { name: label })}
-          hint={t(hintKey)}
+          hint={plugin.ui?.hintKey ? t(hintKey) : undefined}
           onClose={() => setProfileOpen(false)}
         />
       ) : null}

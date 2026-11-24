@@ -402,4 +402,26 @@ describe('deriveProfile · 水位守卫与空批', () => {
     expect(outcome.failures).toBe(1)
     expect(outcome.processedCount).toBe(2)
   })
+
+  it('没有轮次但还有未回应的便条时，仍发一次请求并处理便条', async () => {
+    const previous = emptyProfile({ identity: '旧档案' })
+    const openNote = note('n1', '我不在上海了，搬到杭州了')
+    const { requests, send } = recorder([
+      answer({ cites: [], noteReplies: [{ id: 'n1', reply: '已改' }] }),
+    ])
+    const outcome = await deriveProfile({
+      profile: previous,
+      notes: [openNote],
+      messages: [],
+      processedCount: 0,
+      failures: 0,
+      now: 5,
+      send,
+    })
+    expect(outcome.status).toBe('updated')
+    expect(requests).toHaveLength(1)
+    expect(userContent(requests[0])).toContain('用户便条')
+    expect(outcome.notes[0]?.resolvedAt).toBe(5)
+    expect(outcome.processedCount).toBe(0)
+  })
 })

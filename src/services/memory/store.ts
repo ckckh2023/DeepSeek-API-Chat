@@ -245,6 +245,16 @@ export const addMemoryNote = (text: string, now: number): MemoryNote | null => {
   return note
 }
 
+/** 删除一条便条；找不到 id 时不动，避免无意义的写盘 */
+export const removeMemoryNote = (id: string): void => {
+  const state = readMemoryState()
+  const notes = state.notes.filter((note) => note.id !== id)
+  if (notes.length === state.notes.length) {
+    return
+  }
+  writeMemoryState({ ...state, notes })
+}
+
 /**
  * 忘掉一个会话的水位与活动记录。
  *

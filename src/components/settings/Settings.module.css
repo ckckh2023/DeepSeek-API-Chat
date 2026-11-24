@@ -367,6 +367,13 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+.pluginSectionTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .pluginSectionEmpty {
   padding: 16px 0 8px;
   font-size: 0.75rem;
@@ -624,6 +631,29 @@
 
 /* ---------- 记忆档案（只读）+ 便条 ---------- */
 
+.memoryProfileWrap {
+  position: relative;
+}
+
+.memoryAutoControl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.memoryNoteAdd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.memoryIntro {
+  padding: 6px 0 4px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 0.75rem;
+  line-height: 18px;
+}
+
 .memoryProfile {
   box-sizing: border-box;
   max-height: 220px;
@@ -638,6 +668,30 @@
   overflow-wrap: anywhere;
 }
 
+.memoryProfileWithCopy {
+  padding-right: 46px;
+}
+
+.memoryProfileEmpty {
+  color: var(--dsw-alias-label-tertiary);
+  text-align: center;
+}
+
+.memoryProfileCopy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.memoryProfileWrap:hover .memoryProfileCopy,
+.memoryProfileWrap:focus-within .memoryProfileCopy {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .memoryNotes {
   display: flex;
   flex-direction: column;
@@ -649,8 +703,9 @@
 
 .memoryNote {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 8px 12px;
   border-radius: 12px;
   background-color: var(--dsw-alias-interactive-bg-hover);
@@ -659,29 +714,26 @@
   line-height: 20px;
 }
 
-.memoryNoteReply {
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 0.75rem;
-}
 
-.memoryAutoRow {
+.memoryNoteText {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-
-  /* 开关与两行文案垂直居中一点，不与标题顶端对齐 */
-  > :first-child {
-    margin-top: 2px;
-  }
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
-.memoryNoteInput {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-
-  textarea {
-    min-height: 60px;
-    resize: none;
-  }
+.memoryNoteRead {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 6px;
+  background-color: var(--dsw-alias-brand-primary);
+  color: var(--dsw-static-neutral-bluish-00);
+  font-size: 0.6875rem;
+  line-height: 16px;
 }
+
+.memoryNoteDelete {
+  flex: none;
+  margin-right: -4px;
+}
+

@@ -707,6 +707,18 @@ export const IconToastError16 = () => (
     />
   </svg>
 )
+/** 添加：细线加号，颜色跟随 currentColor */
+export const IconAddOutline16 = () => (
+  <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M8 2.6v10.8M2.6 8h10.8"
+      stroke="currentColor"
+      strokeWidth={1.4}
+      strokeLinecap="round"
+    />
+  </svg>
+)
+
 /** 插件管理：立体盒子轮廓，颜色跟随 currentColor */
 export const IconPluginOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">

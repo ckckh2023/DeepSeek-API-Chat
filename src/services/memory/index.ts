@@ -103,7 +103,11 @@ type ParseResult = { ok: true; value: ParsedAnswer } | { ok: false; reason: stri
  * 超限不在这里改，而是判为不合格触发重试 —— spec 的「单段超字数上限时由整理环节压缩」
  * 指的是整理这一环（重试让模型自己压），不是读侧静默截断。
  */
-const parseAnswer = (text: string, noteIds: readonly string[]): ParseResult => {
+const parseAnswer = (
+  text: string,
+  noteIds: readonly string[],
+  requireCites: boolean
+): ParseResult => {
   const body = extractJson(text)
   if (!body) {
     return { ok: false, reason: JSON_MISSING }
@@ -151,10 +155,16 @@ const parseAnswer = (text: string, noteIds: readonly string[]): ParseResult => {
     return { ok: false, reason: 'too-long:profile' }
   }
   const rawCites = parsed.cites
-  if (!Array.isArray(rawCites) || rawCites.length === 0) {
+  if (rawCites !== undefined && !Array.isArray(rawCites)) {
     return { ok: false, reason: 'no-cites' }
   }
-  const cites = rawCites.filter((item): item is string => typeof item === 'string' && !!item)
+  const cites = (rawCites ?? []).filter(
+    (item): item is string => typeof item === 'string' && !!item
+  )
+  // 有轮次时必须引用至少一轮；只有便条时没有 turn 可引，允许空数组
+  if (requireCites && cites.length === 0) {
+    return { ok: false, reason: 'no-cites' }
+  }
   const rawReplies = parsed.noteReplies
   if (rawReplies !== undefined && !Array.isArray(rawReplies)) {
     return { ok: false, reason: 'bad-replies' }
@@ -251,11 +261,11 @@ export const deriveProfile = async (options: DeriveOptions): Promise<DeriveOutco
     processedCount: base,
     failures: options.failures,
   }
-  if (!batch.text) {
+  const openNotes = notes.filter((note) => note.resolvedAt === undefined)
+  // 没有新轮次也没有便条才算没事可做；只剩未回应便条时仍要发一次请求
+  if (!batch.text && openNotes.length === 0) {
     return { status: 'skipped', ...unchanged, attempts: 0 }
   }
-
-  const openNotes = notes.filter((note) => note.resolvedAt === undefined)
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     const input = buildDeriveUserMessage({
       profileText: renderExisting(options.profile),
@@ -270,16 +280,20 @@ export const deriveProfile = async (options: DeriveOptions): Promise<DeriveOutco
       // 网络 / 超时 / HTTP 错误都算这一轮失败，交给下一次尝试
       continue
     }
-    const parsed = parseAnswer(answer, openNotes.map((note) => note.id))
+    const parsed = parseAnswer(answer, openNotes.map((note) => note.id), batch.text.length > 0)
     if (!parsed.ok) {
       continue
     }
+    // 没有新轮次时，模型回空段视为「这次不修改」，沿用旧档案：
+    // 否则它很容易把「只处理便条」理解成「档案应为空」，一次整理就把档案清掉
+    const keepSection = (next: string, previous: string): string =>
+      batch.text ? next : next || previous
     return {
       status: 'updated',
       profile: {
-        identity: parsed.value.identity,
-        preferences: parsed.value.preferences,
-        ongoing: parsed.value.ongoing,
+        identity: keepSection(parsed.value.identity, options.profile.identity),
+        preferences: keepSection(parsed.value.preferences, options.profile.preferences),
+        ongoing: keepSection(parsed.value.ongoing, options.profile.ongoing),
         unresolved: parsed.value.unresolved,
         // 新鲜度与累计轮数由宿主写，不信模型自报
         updatedAt: options.now,

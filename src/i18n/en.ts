@@ -175,20 +175,26 @@ export const en = {
   pluginPurgeDescription:
     'When enabled, fallback rules are appended to the end of the System prompt, suppressing first-turn hedging, disclaimers, and self-softening.',
 
-  pluginMemoryLabel: 'Memory',
+  pluginMemoryLabel: 'Global memory',
   pluginMemoryDescription:
-    'When enabled, a cross-session profile (who the user is, preferences, work in progress) is appended to the end of the System prompt, so they do not have to repeat themselves.',
-  pluginMemoryHint:
-    'The profile stays on this device only and does not sync across platforms. You can only write notes here: the profile itself is rewritten by consolidation, and every note gets an answer.',
+    'When enabled, a global conversation profile — including but not limited to who you are, preferences and taboos, and ongoing matters — is appended to the end of the System prompt on every request, so DeepSeek understands you better, but it will consume your balance faster.',
+
   pluginMemoryEdit: 'View profile',
   pluginMemoryProfileTitle: 'Current profile',
   pluginMemoryCopyProfile: 'Copy profile',
-  pluginMemoryProfileEmpty: 'No profile yet. Chat a few turns and hit Consolidate now, or write a note to correct it.',
+  pluginMemoryProfileEmpty: 'No memory profile about you yet.',
+  pluginMemoryProfileIntro: 'A global memory profile consolidated by DeepSeek, so it knows you better the more you chat.',
   pluginMemoryNotesTitle: 'Notes',
-  pluginMemoryNotesEmpty: 'No notes. If something is remembered wrong, write one — the next consolidation must answer every note.',
+  pluginMemoryNotesEmpty: 'No notes written by you yet.',
+  pluginMemoryNotesIntro: 'Notes you write to correct that profile are answered one by one at the next consolidation.',
+  pluginMemoryClearConfirmTitle: 'Clear all memory?',
+  pluginMemoryClearConfirmDescription: 'The profile and all notes will be deleted, and this cannot be undone.',
+  pluginMemoryClearConfirm: 'Clear memory',
   pluginMemoryNotePlaceholder: 'For example: I moved from Shanghai to Hangzhou.',
   pluginMemoryNoteAdd: 'Add note',
   pluginMemoryNoteAdded: 'Note added, the next consolidation will answer it',
+  pluginMemoryNoteDelete: 'Delete note',
+  pluginMemoryNoteRead: 'Read',
   pluginMemoryDeriveNow: 'Consolidate now',
   pluginMemoryDeriving: 'Consolidating…',
   pluginMemoryClear: 'Clear all memory',
@@ -199,8 +205,7 @@ export const en = {
   pluginMemoryNothingPending: 'Nothing to consolidate yet',
   pluginMemoryCleared: 'Memory cleared',
   pluginMemoryAutoLabel: 'Consolidate automatically',
-  pluginMemoryAutoDescription:
-    'Consolidates in the background every 8 turns, or 5 minutes after you stop chatting; catches up on unprocessed turns when you open the app. Off means manual only.',
+
   pluginMemoryAutoPaused:
     'Automatic consolidation paused after repeated failures. Hit Consolidate now once to resume.',
 

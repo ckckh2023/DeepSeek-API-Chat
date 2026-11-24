@@ -19,6 +19,7 @@ declare const styles: {
   readonly "pluginList": string;
   readonly "pluginSection": string;
   readonly "pluginSectionTitle": string;
+  readonly "pluginSectionTitleRow": string;
   readonly "pluginSectionEmpty": string;
   readonly "pluginActions": string;
   readonly "pluginDescription": string;
@@ -36,12 +37,21 @@ declare const styles: {
   readonly "pluginPresetsLabel": string;
   readonly "pluginPresetList": string;
   readonly "pluginPresetButton": string;
+  readonly "memoryProfileWrap": string;
+  readonly "memoryAutoControl": string;
+  readonly "memoryNoteAdd": string;
+  readonly "memoryIntro": string;
   readonly "memoryProfile": string;
+  readonly "memoryProfileWithCopy": string;
+  readonly "memoryProfileEmpty": string;
+  readonly "memoryProfileCopy": string;
   readonly "memoryNotes": string;
   readonly "memoryNote": string;
-  readonly "memoryNoteReply": string;
-  readonly "memoryAutoRow": string;
-  readonly "memoryNoteInput": string;
+
+  readonly "memoryNoteText": string;
+  readonly "memoryNoteRead": string;
+  readonly "memoryNoteDelete": string;
+
   readonly "importProgress": string;
   readonly "importProgressTrack": string;
   readonly "importProgressFill": string;

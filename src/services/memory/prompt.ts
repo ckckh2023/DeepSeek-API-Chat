@@ -69,11 +69,12 @@ ${sectionLines}
 规则：
 1. 新信息覆盖旧信息；用户改口时以更晚的说法为准，不要同时保留两种说法。
 2. 不要编造。没在输入里出现的事实一律不写。
-3. cites 列出你实际用到的 turn 编号，至少一个。
+3. cites 列出你实际用到的 turn 编号；没有待处理轮次时可以写空数组。
 4. 每条用户便条都必须在 noteReplies 里回应一次，id 原样带回；不接受就先改，改不了要说清为什么。
 5. 用户便条优先级最高，与档案冲突时以便条为准。
 6. 档案整体（三段 + 未解决清单）不超过 ${PROFILE_MAX_LENGTH} 字：宁可少写，不要注水。
-7. 寒暄、玩笑、一次性的闲聊不写进档案。`
+7. 寒暄、玩笑、一次性的闲聊不写进档案。
+8. 没有待处理轮次时，保留现有档案中仍然成立的内容；不要因为本轮没有新对话就清空档案。`
 
 export interface DeriveInput {
   /** 现有档案全文；空档案时为空串 */
@@ -92,7 +93,7 @@ export const buildDeriveUserMessage = (input: DeriveInput): string => {
   if (input.notes.length > 0) {
     parts.push('[用户便条]', input.notes.map((note) => `${note.id}｜${note.text}`).join('\n'))
   }
-  parts.push('[待处理轮次]', input.turnsText)
+  parts.push('[待处理轮次]', input.turnsText || '（没有新的对话轮次，只需处理上述便条并更新档案）')
   parts.push('[输出要求]', input.retryHint ?? '只输出 JSON。')
   return parts.join('\n\n')
 }

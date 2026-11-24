@@ -142,7 +142,8 @@ export const zh = {
   pluginManagementEmptyTitle: '暂无插件',
   pluginManagementEmptyDescription: '插件会显示在这里。',
   pluginCustomInstructionsLabel: '自定义指令',
-  pluginCustomInstructionsDescription: '开启后，在每次请求的 System 末尾追加你的全局指令，DeepSeek 会根据你的指令执行对应任务。',
+  pluginCustomInstructionsDescription:
+    '开启后，在每次请求的 System 末尾追加你的全局指令，DeepSeek 会根据你的指令执行对应任务。',
   pluginCustomInstructionsPlaceholder: '例如：回答时先给结论，再解释原因。',
   pluginCustomInstructionsHint: '留空时不会注入任何内容。',
   pluginCustomInstructionsCounter: '{count} / {limit}',
@@ -169,6 +170,34 @@ export const zh = {
   pluginPurgeDescription:
     '开启后，在每次请求的 System 末尾追加兜底规则，可以压掉首轮的推脱、免责声明与自我弱化。',
 
+  pluginMemoryLabel: '记忆',
+  pluginMemoryDescription:
+    '开启后，在每次请求的 System 末尾注入一份跨会话档案（我是谁、偏好与禁忌、进行中的事），让它不用每轮重新交代。',
+  pluginMemoryHint:
+    '档案只存在本机，三端不互通。你在这里只能写便条：档案由整理环节重写，便条会被逐条回应。',
+  pluginMemoryEdit: '查看档案',
+  pluginMemoryProfileTitle: '当前档案',
+  pluginMemoryCopyProfile: '复制档案',
+  pluginMemoryProfileEmpty: '还没有档案。聊几轮后点「立即整理」生成，或直接写便条纠正。',
+  pluginMemoryNotesTitle: '便条',
+  pluginMemoryNotesEmpty: '没有便条。发现记错了就写一条，下次整理必须逐条回应。',
+  pluginMemoryNotePlaceholder: '例如：我不在上海了，搬到杭州了。',
+  pluginMemoryNoteAdd: '添加便条',
+  pluginMemoryNoteAdded: '便条已添加，下次整理会回应',
+  pluginMemoryDeriveNow: '立即整理',
+  pluginMemoryDeriving: '整理中…',
+  pluginMemoryClear: '清空全部记忆',
+  pluginMemoryDerived: '档案已更新',
+  pluginMemoryDeriveFailed: '整理失败，档案没变',
+  pluginMemoryDeriveNoKey: '先填 API Key 才能整理',
+  pluginMemoryNoSession: '先打开一个会话再整理',
+  pluginMemoryNothingPending: '没有待整理的轮次',
+  pluginMemoryCleared: '记忆已清空',
+  pluginMemoryAutoLabel: '自动整理',
+  pluginMemoryAutoDescription:
+    '聊够 8 轮、或停止聊天 5 分钟后在后台整理；打开应用时补上没整理的轮次。关掉后只能手动整理。',
+  pluginMemoryAutoPaused: '连续整理失败，已暂停自动整理。点「立即整理」试一次即可恢复。',
+
   pluginSectionBuiltin: '内置插件',
   pluginSectionCommunity: '非官方插件',
   pluginCommunityEmpty:
@@ -189,8 +218,7 @@ export const zh = {
   advancedModeLabel: '高级模式',
   advancedModeExited: '已退出高级模式',
   advancedModeDialogTitle: '启用高级模式',
-  advancedModeWarning:
-    '启用高级模式可能会出现一些不可控的影响，还可能会导致应用程序崩溃，建议加入',
+  advancedModeWarning: '启用高级模式可能会出现一些不可控的影响，还可能会导致应用程序崩溃，建议加入',
   advancedModeWarningTail: '。',
   advancedModeCopyGroup: '复制群号',
   advancedModeJoinNow: '立即跳转',

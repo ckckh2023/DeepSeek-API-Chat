@@ -51,10 +51,21 @@ export interface PluginUiMeta {
   readonly descriptionKey?: string
   /** 编辑弹窗底部提示；不写用通用提示 */
   readonly hintKey?: string
+  /** 编辑入口的 tooltip；不写用通用的「编辑 {name}」 */
+  readonly tooltipKey?: string
   /** 编辑弹窗占位符 */
   readonly placeholderKey?: string
   /** 是否提供正文编辑入口 */
   readonly editable?: boolean
+  /**
+   * 编辑弹窗的形状，同时决定编辑入口是否出现。
+   *
+   * 'text'：正文存 pluginSettings[name].config.text，设置页共用 PluginPromptDialog。
+   * 'profile'：宿主另有存储（如记忆档案存独立键），弹窗自己读写，不经过 config.text。
+   *
+   * 这是插件唯一能选的两种存储形态；不是「可扩展的编辑器类型」——有第三种真实需求时再加。
+   */
+  readonly editor?: 'text' | 'profile'
   /** 预设正文：有值时编辑弹窗顶部出现预设按钮，点一下填入输入框 */
   readonly presets?: readonly PluginPreset[]
 }

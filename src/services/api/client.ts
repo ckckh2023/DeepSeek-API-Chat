@@ -130,6 +130,44 @@ export const deleteFile = async (apiKey: string, fileId: string): Promise<void> 
   })
 }
 
+/**
+ * POST /anthropic/v1/messages（stream: false），返回正文拼接后的文本。
+ *
+ * 给一次性、不要流式的调用方用（记忆整理）。正常的聊天回复走 streamMessage。
+ */
+export const createMessage = async (
+  apiKey: string,
+  body: CreateMessageRequest,
+  signal?: AbortSignal
+): Promise<string> => {
+  const response = await request(`${ANTHROPIC_BASE_URL}/messages`, {
+    method: 'POST',
+    headers: {
+      ...anthropicHeaders(apiKey, false),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ...body, stream: false }),
+    signal,
+  })
+  const payload: unknown = await response.json().catch(() => null)
+  if (typeof payload !== 'object' || payload === null) {
+    throw new ApiError('protocol', '')
+  }
+  const content = (payload as { content?: unknown }).content
+  if (!Array.isArray(content)) {
+    throw new ApiError('protocol', '')
+  }
+  return content
+    .flatMap((block) => {
+      if (typeof block !== 'object' || block === null) {
+        return []
+      }
+      const { type, text } = block as { type?: unknown; text?: unknown }
+      return type === 'text' && typeof text === 'string' ? [text] : []
+    })
+    .join('')
+}
+
 const hasFile = (body: CreateMessageRequest) =>
   body.messages.some(
     (message) =>

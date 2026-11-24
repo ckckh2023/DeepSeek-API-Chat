@@ -8,6 +8,7 @@
  */
 import type { PluginMessage, PromptPatch, PromptPlugin } from './types.js'
 import { customInstructionsPlugin } from './custom-instructions/index.js'
+import { memoryPlugin } from './memory/index.js'
 import { nsfwPlugin } from './nsfw/index.js'
 import { personaPlugin } from './persona/index.js'
 import { purgePlugin } from './purge/index.js'
@@ -39,6 +40,7 @@ export const plugins: readonly PromptPlugin[] = [
   personaPlugin,
   purgePlugin,
   customInstructionsPlugin,
+  memoryPlugin,
 ]
 
 /** 最近一次运行失败记录，供将来的设置页展示；不在控制台打印（项目 lint 禁 no-console） */

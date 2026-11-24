@@ -149,8 +149,7 @@ export const en = {
   pluginCustomInstructionsLabel: 'Custom instructions',
   pluginCustomInstructionsDescription:
     'When enabled, your global instructions are appended to the end of the System prompt on every request, and DeepSeek follows them when carrying out the task.',
-  pluginCustomInstructionsPlaceholder:
-    'For example: lead with the conclusion, then explain why.',
+  pluginCustomInstructionsPlaceholder: 'For example: lead with the conclusion, then explain why.',
   pluginCustomInstructionsHint: 'Nothing is injected when this is empty.',
   pluginCustomInstructionsCounter: '{count} / {limit}',
 
@@ -175,6 +174,35 @@ export const en = {
   pluginPurgeLabel: 'Refusal fallback mode',
   pluginPurgeDescription:
     'When enabled, fallback rules are appended to the end of the System prompt, suppressing first-turn hedging, disclaimers, and self-softening.',
+
+  pluginMemoryLabel: 'Memory',
+  pluginMemoryDescription:
+    'When enabled, a cross-session profile (who the user is, preferences, work in progress) is appended to the end of the System prompt, so they do not have to repeat themselves.',
+  pluginMemoryHint:
+    'The profile stays on this device only and does not sync across platforms. You can only write notes here: the profile itself is rewritten by consolidation, and every note gets an answer.',
+  pluginMemoryEdit: 'View profile',
+  pluginMemoryProfileTitle: 'Current profile',
+  pluginMemoryCopyProfile: 'Copy profile',
+  pluginMemoryProfileEmpty: 'No profile yet. Chat a few turns and hit Consolidate now, or write a note to correct it.',
+  pluginMemoryNotesTitle: 'Notes',
+  pluginMemoryNotesEmpty: 'No notes. If something is remembered wrong, write one — the next consolidation must answer every note.',
+  pluginMemoryNotePlaceholder: 'For example: I moved from Shanghai to Hangzhou.',
+  pluginMemoryNoteAdd: 'Add note',
+  pluginMemoryNoteAdded: 'Note added, the next consolidation will answer it',
+  pluginMemoryDeriveNow: 'Consolidate now',
+  pluginMemoryDeriving: 'Consolidating…',
+  pluginMemoryClear: 'Clear all memory',
+  pluginMemoryDerived: 'Profile updated',
+  pluginMemoryDeriveFailed: 'Consolidation failed, profile unchanged',
+  pluginMemoryDeriveNoKey: 'Add an API key before consolidating',
+  pluginMemoryNoSession: 'Open a conversation before consolidating',
+  pluginMemoryNothingPending: 'Nothing to consolidate yet',
+  pluginMemoryCleared: 'Memory cleared',
+  pluginMemoryAutoLabel: 'Consolidate automatically',
+  pluginMemoryAutoDescription:
+    'Consolidates in the background every 8 turns, or 5 minutes after you stop chatting; catches up on unprocessed turns when you open the app. Off means manual only.',
+  pluginMemoryAutoPaused:
+    'Automatic consolidation paused after repeated failures. Hit Consolidate now once to resume.',
 
   pluginSectionBuiltin: 'Built-in plugins',
   pluginSectionCommunity: 'Unofficial plugins',

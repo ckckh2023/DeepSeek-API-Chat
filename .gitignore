@@ -16,3 +16,6 @@ tmp/
 /src-tauri/gen/
 /android/
 /ios/
+
+# 本地 ticket / 草稿目录（to-tickets 本地模式的产物，不入库）
+.scratch/

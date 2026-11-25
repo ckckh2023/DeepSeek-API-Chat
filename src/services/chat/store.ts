@@ -1156,7 +1156,8 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
           prepared.question,
           prepared.prefix,
           initial.thinking ?? false,
-          latestReminder
+          latestReminder,
+          withExtras
         )
         const settings = useSettings.getState()
         const thinkingEffort = settings.thinkingEffort

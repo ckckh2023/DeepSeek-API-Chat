@@ -32,3 +32,5 @@ export const setChatMode = (mode: ChatMode) => {
 }
 
 export const currentChatModel = (): ChatModel => CHAT_MODES[useChatMode.getState().mode].model
+/** v4-pro 不支持服务端工具调用（联网搜索、阅读链接）与会话标题生成，请求里不能带。 */
+export const supportsChatExtras = (model: ChatModel): boolean => model !== 'deepseek-v4-pro'

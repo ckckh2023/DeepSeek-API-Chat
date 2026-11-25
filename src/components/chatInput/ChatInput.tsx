@@ -18,6 +18,7 @@ import {
   IconThinkOutline14,
 } from '../base/icons.js'
 import { setSearch, setThinking, setThinkingEffort, useSettings } from '../../services/settings.js'
+import { useChatMode } from '../../services/chatMode.js'
 import { stopMessageEdits, useIsMobile } from '../../app/viewport.js'
 import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
 import {
@@ -65,6 +66,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const importingHistory = useChatStore((state) => state.importingHistory)
   const isMobile = useIsMobile()
   const search = useSettings((state) => state.search)
+  const proMode = useChatMode((state) => state.mode === 'pro')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const togglesRef = useRef<HTMLDivElement>(null)
@@ -351,12 +353,13 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
                 document.body
               )
             : null}
-          <Tooltip content={t('deactivatedSearchTooltip')}>
+          <Tooltip content={t(proMode ? 'proSearchDisabledTooltip' : 'deactivatedSearchTooltip')}>
             <button
               type="button"
-              className={clsx(styles.toggle, search && styles.selected)}
+              className={clsx(styles.toggle, search && !proMode && styles.selected)}
               aria-label={t('search')}
-              aria-pressed={search}
+              aria-pressed={!proMode && search}
+              disabled={proMode}
               onClick={() => setSearch(!search)}
             >
               <IconGlobeLanguageOutline14 />

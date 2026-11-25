@@ -4,7 +4,7 @@ import { prunePinnedSessions, removePinnedSession } from './pinned.js'
 import { ApiError, streamMessage } from '../api/client.js'
 import { composeSystemPrompt } from '../../plugins/index.js'
 import type { CreateMessageRequest } from '../api/types.js'
-import { currentChatModel } from '../chatMode.js'
+import { currentChatModel, supportsChatExtras } from '../chatMode.js'
 import { extractFileIds, getFileErrorCode, isRetryableApiError } from '../api/errors.js'
 import {
   cancelUpload,
@@ -298,13 +298,14 @@ export const bindChatPersistence = () => {
 /** 按当前开关创建回复：深度思考对应 thinking，智能搜索控制 deepseek_web_search。 */
 const createReply = (): AssistantMessage => {
   const { thinking, search } = useSettings.getState()
+  const model = currentChatModel()
   return {
     id: createId(),
     role: 'assistant',
     createdAt: Date.now(),
-    model: currentChatModel(),
+    model,
     thinking,
-    search,
+    search: search && supportsChatExtras(model),
     prefix: true,
     status: 'pending',
     blocks: [],
@@ -1119,8 +1120,10 @@ const waitForRetry = (attempt: number, signal: AbortSignal) =>
  * 服务端判定 file_id 失效时重新补传后重发，退避重试且次数有上限，超过则按原始报错收尾。
  */
 const streamReply = async (sessionId: string, initial: AssistantMessage, request: Request) => {
+  const model = initial.model ?? currentChatModel()
+  const withExtras = supportsChatExtras(model)
   const controller = new AbortController()
-  if (!getSession(sessionId)?.title) {
+  if (withExtras && !getSession(sessionId)?.title) {
     titleRequests.add(controller)
   }
   set((state) => ({ streaming: { ...state.streaming, [sessionId]: controller } }))
@@ -1162,7 +1165,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
         const events = streamMessage(
           settings.apiKey ?? '',
           {
-            model: initial.model ?? currentChatModel(),
+            model,
             // 编译期内置插件：按设置里的开关与配置组装 system（插件出错不影响请求；社区插件还受高级模式门禁）
             system: composeSystemPrompt(SYSTEM_PROMPT, messages, pluginStates, {
               advanced: useAdvancedMode.getState().enabled,
@@ -1173,7 +1176,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
               ? { output_config: { effort: thinkingEffort === 'none' ? 'high' : thinkingEffort } }
               : {}),
             safety_check: SAFETY_CHECK,
-            tools: serverTools(initial.search ?? false),
+            tools: withExtras ? serverTools(initial.search ?? false) : [],
             ...(titleRequests.has(controller) ? { title: { enabled: true } } : {}),
           },
           controller.signal

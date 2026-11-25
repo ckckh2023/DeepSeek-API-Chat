@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
 import { openUsage, useBalance } from '../../services/balance.js'
 import { useSettings } from '../../services/settings.js'
-import { openReleases, useUpdateStore } from '../../services/update.js'
+import { useUpdateStore } from '../../services/update.js'
 import { isPeakTime } from '../../utils/peakValley.js'
+import { UpdateDialog } from '../settings/UpdateDialog.js'
 import styles from './Sider.module.css'
 
 /**
@@ -18,6 +19,7 @@ export const UpdateBadge = () => {
   const amount = useBalance((state) => state.amount)
   const refresh = useBalance((state) => state.refresh)
   const [now, setNow] = useState(() => new Date())
+  const [updateOpen, setUpdateOpen] = useState(false)
 
   useEffect(() => {
     void refresh()
@@ -55,14 +57,22 @@ export const UpdateBadge = () => {
 
   if (latest) {
     return (
-      <button
-        type="button"
-        className={styles.updateBadge}
-        title={t('updateAvailableHint', { version: latest })}
-        onClick={openReleases}
-      >
-        {t('updateAvailable')}
-      </button>
+      <>
+        <button
+          type="button"
+          className={styles.updateBadge}
+          title={t('updateAvailableHint', { version: latest })}
+          onClick={() => setUpdateOpen(true)}
+        >
+          {t('updateAvailable')}
+        </button>
+        <UpdateDialog
+          open={updateOpen}
+          onClose={() => setUpdateOpen(false)}
+          latest={latest}
+          checkOnOpen={false}
+        />
+      </>
     )
   }
 

@@ -6,7 +6,14 @@
      推进屏幕中间，四周露出页面底色，看起来就是悬浮卡片。 */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* 贴着键盘的那条底部留白：键盘弹起时 home indicator 已经被键盘盖住，
+     这条留白要归零。安卓由 MainActivity 下发 0，iOS 的 env() 不会跟着键盘变，
+     改由 viewport.ts 打 data-keyboard-open 标记。 */
+  --safe-bottom-input: var(--safe-bottom);
+}
 
+html[data-keyboard-open] {
+  --safe-bottom-input: 0px;
 }
 
 @media (max-width: 1023px) {

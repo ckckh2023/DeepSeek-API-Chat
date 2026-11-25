@@ -11,6 +11,23 @@ const subscribe = (onChange: () => void) => {
 
 export const useIsMobile = () => useSyncExternalStore(subscribe, () => query.matches)
 
+/** 视口变矮超过这个高度才算软键盘弹起，排除地址栏伸缩与窗口缩放 */
+const KEYBOARD_MIN_INSET = 120
+
+/**
+ * 键盘弹起时页面已经贴着键盘顶部，home indicator 那条安全区被键盘整个盖住，
+ * 输入框不该再为它留白（安卓由原生下发 0，iOS 的 env() 不会跟着键盘变）。
+ * 标记写在 <html> 上，global.css 用它把 --safe-bottom-input 归零。
+ */
+const markKeyboardOpen = (open: boolean) => {
+  const root = document.documentElement
+  if (open) {
+    root.dataset.keyboardOpen = ''
+  } else {
+    delete root.dataset.keyboardOpen
+  }
+}
+
 /**
  * 正在编辑的消息 id。
  * 编辑已有消息时键盘只服务于内联编辑框，底部输入框不该跟着被顶到键盘上方，
@@ -79,6 +96,7 @@ export const useMobileViewport = (enabled: boolean) => {
       frame.style.removeProperty('--app-viewport-height')
       frame.style.removeProperty('--app-viewport-top')
       frame.style.removeProperty('--app-keyboard-cover')
+      markKeyboardOpen(false)
     }
     const update = () => {
       // iOS 的 scale 会报成 0.9999 / 1.0001，严格比较会把正常状态误判成缩放
@@ -101,10 +119,15 @@ export const useMobileViewport = (enabled: boolean) => {
         restingHeight = height
       }
       if (editing) {
+        // 编辑已有消息时页面锁在整屏高度，底部留白保持键盘收起前的样子
+        markKeyboardOpen(false)
         frame.style.setProperty('--app-viewport-height', `${restingHeight}px`)
         frame.style.setProperty('--app-keyboard-cover', `${Math.max(0, restingHeight - height)}px`)
         return
       }
+      // 焦点在输入框且视口明显变矮才算键盘弹起；页面已经贴到键盘顶部，
+      // 底部那 34px 的 home indicator 留白要收掉，否则键盘上方会多出一条空白
+      markKeyboardOpen(isTextEntry() && restingHeight - height > KEYBOARD_MIN_INSET)
       restingHeight = Math.max(restingHeight, height)
       frame.style.setProperty('--app-viewport-height', `${height}px`)
       frame.style.setProperty('--app-viewport-top', `${Math.round(viewport.offsetTop)}px`)
@@ -186,7 +209,7 @@ export const useKeyboardInset = () => {
         keyboardOpen = false
       } else if (!keyboardOpen) {
         // 明显变矮且焦点在输入框才当作键盘，手柄缩放窗口不出错
-        if (isTextEntry() && restHeight - height > 120) {
+        if (isTextEntry() && restHeight - height > KEYBOARD_MIN_INSET) {
           keyboardOpen = true
         } else {
           restHeight = height

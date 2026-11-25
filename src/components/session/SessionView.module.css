@@ -74,7 +74,7 @@
     bottom: auto;
     flex-shrink: 0;
     margin: 0 auto;
-    padding-bottom: var(--safe-bottom);
+    padding-bottom: var(--safe-bottom-input);
     /* 键盘弹出时底部留白会变，一起过渡，避免输入框二次跳动 */
     transition: padding-bottom 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
   }

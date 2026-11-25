@@ -220,6 +220,7 @@ export const zh = {
   updateChannelGitee: 'Gitee Release',
   updateChannelBaidu: '百度网盘',
   updateChannel123: '123 云盘',
+  updateChannelQuark: '夸克网盘',
   advancedModeLabel: '高级模式',
   advancedModeExited: '已退出高级模式',
   advancedModeDialogTitle: '启用高级模式',

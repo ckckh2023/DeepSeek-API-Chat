@@ -9,6 +9,7 @@ import {
   BAIDU_PAN_URL,
   GITEE_RELEASES_URL,
   PAN123_URL,
+  QUARK_PAN_URL,
   RELEASES_URL,
   REPOSITORY,
   appVersion,
@@ -29,6 +30,7 @@ const CHANNELS: { label: TranslationKey; url: string }[] = [
   { label: 'updateChannelGitee', url: GITEE_RELEASES_URL },
   { label: 'updateChannelBaidu', url: BAIDU_PAN_URL },
   { label: 'updateChannel123', url: PAN123_URL },
+  { label: 'updateChannelQuark', url: QUARK_PAN_URL },
 ]
 
 const ABOUT_LINKS: { label: TranslationKey; url: string }[] = [

@@ -227,6 +227,7 @@ export const en = {
   updateChannelGitee: 'Gitee Release',
   updateChannelBaidu: 'Baidu Pan',
   updateChannel123: '123 Pan',
+  updateChannelQuark: 'Quark Pan',
   advancedModeLabel: 'Advanced mode',
   advancedModeExited: 'Advanced mode disabled',
   advancedModeDialogTitle: 'Enable advanced mode',

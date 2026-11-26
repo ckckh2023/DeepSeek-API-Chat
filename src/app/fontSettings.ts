@@ -1,4 +1,3 @@
-import { useAdvancedMode } from '../services/advancedMode.js'
 import { useSettings, type ChatFontSize } from '../services/settings.js'
 
 /** 档位对应的缩放系数，乘在对话内容与对话列表的字号、行高和列表项高度上 */
@@ -11,12 +10,9 @@ const SCALES: Record<ChatFontSize, number> = {
 
 let appliedScale: number | null = null
 
-/** 只在高级模式下应用档位；退出高级模式时回到标准，已保存的档位保留 */
+/** 应用当前档位；随字号设置变化更新 */
 const syncChatFont = () => {
-  const size = useAdvancedMode.getState().enabled
-    ? useSettings.getState().chatFontSize
-    : 'standard'
-  const scale = SCALES[size]
+  const scale = SCALES[useSettings.getState().chatFontSize]
   if (scale === appliedScale) {
     return
   }
@@ -24,9 +20,8 @@ const syncChatFont = () => {
   document.documentElement.style.setProperty('--chat-font-scale', String(scale))
 }
 
-/** 首屏渲染前同步应用一次，之后随字号设置与高级模式切换更新 */
+/** 首屏渲染前同步应用一次，之后随字号设置更新 */
 export const setupChatFont = () => {
   syncChatFont()
   useSettings.subscribe(syncChatFont)
-  useAdvancedMode.subscribe(syncChatFont)
 }

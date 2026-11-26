@@ -215,6 +215,7 @@ export const en = {
     'No unofficial plugins yet. Unofficial plugins are bundled at build time as community plugins; runtime installation is not supported.',
   updateSettingLabel: 'Software version',
   updateCheckButton: 'Check for updates',
+  updateDownloadClient: 'Download client',
   updateDialogTitle: 'Check for updates',
   updateChecking: 'Checking for the latest version…',
   updateAvailableMessage: 'New version {version} is available',
@@ -296,7 +297,7 @@ export const en = {
   shareImportBusy: 'Importing…',
   shareImportInvalidUrl: 'Enter a valid DeepSeek share link',
   shareImportWebUnsupported:
-    'This browser cannot read share links directly. Please use the desktop or Android app.',
+    'This browser cannot read share links directly. Please use the client app.',
   shareImportNetworkFailed: 'Could not read the shared chat. Check your network and try again.',
   shareImportInvalidData: 'The shared chat could not be parsed. The link may have expired.',
   shareImportDone: 'Imported 1 chat',

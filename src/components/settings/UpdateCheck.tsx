@@ -219,7 +219,16 @@ export const UpdateCheck = () => {
             >
               {t('aboutUs')}
             </Button>
-            {isWebApp() ? null : (
+            {isWebApp() ? (
+              <Button
+                variant="outlined"
+                size="m"
+                className={settingsStyles.cellButton}
+                onClick={() => setOpen(true)}
+              >
+                {t('updateDownloadClient')}
+              </Button>
+            ) : (
               <Button
                 variant="outlined"
                 size="m"
@@ -232,7 +241,11 @@ export const UpdateCheck = () => {
           </div>
         </div>
       </div>
-      <UpdateDialog open={open} onClose={() => setOpen(false)} />
+      <UpdateDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title={isWebApp() ? 'updateDownloadClient' : undefined}
+      />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <AdvancedModeNotice
         open={advancedNoticeOpen}

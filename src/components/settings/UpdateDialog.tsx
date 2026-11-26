@@ -29,6 +29,8 @@ const CHANNELS: { label: TranslationKey; url: string }[] = [
 type UpdateDialogProps = {
   open: boolean
   onClose: () => void
+  /** 弹窗标题；下载客户端入口复用本弹窗时传入，默认为「检查更新」 */
+  title?: TranslationKey
   /** 已知的新版本 tag；传入后打开即展示，不重新联网检查 */
   latest?: string
   /** 打开时是否联网检查一次；角标已知版本时可关掉 */
@@ -39,6 +41,7 @@ type UpdateDialogProps = {
 export const UpdateDialog = ({
   open,
   onClose,
+  title = 'updateDialogTitle',
   latest: knownLatest = '',
   checkOnOpen = true,
 }: UpdateDialogProps) => {
@@ -101,7 +104,7 @@ export const UpdateDialog = ({
 
   return (
     <Modal
-      title={t('updateDialogTitle')}
+      title={t(title)}
       closable
       state={visible ? 'open' : 'closed'}
       footer={

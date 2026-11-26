@@ -220,7 +220,9 @@ export const AssistantMessage = memo(function AssistantMessage({
                   {t('continueGenerating')}
                 </Button>
               ) : null}
-              {message.usage ? <TokenUsagePopover usage={message.usage} /> : null}
+              {message.usage ? (
+                <TokenUsagePopover usage={message.usage} sessionId={sessionId} />
+              ) : null}
             </div>
           ) : null}
         </div>

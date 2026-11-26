@@ -1,5 +1,6 @@
 declare const styles: {
   readonly "panel": string;
+  readonly "summarize": string;
   readonly "title": string;
   readonly "total": string;
   readonly "breakdown": string;

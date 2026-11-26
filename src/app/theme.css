@@ -1,5 +1,5 @@
 :root {
-  /* 对话内容与对话列表的字号缩放系数：1 为标准；只由高级模式下的「对话与列表字体大小」改写 */
+  /* 对话内容与对话列表的字号缩放系数：1 为标准；只由「对话与列表字体大小」改写 */
   --chat-font-scale: 1;
   --dsw-font-family:
     system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,

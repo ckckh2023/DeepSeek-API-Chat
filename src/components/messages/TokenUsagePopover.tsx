@@ -6,15 +6,23 @@ import { hasTokenBreakdown, summarizeUsage } from '../../services/chat/usage.js'
 import { useAnchoredPosition, useDismiss } from '../base/anchored.js'
 import { IconButton } from '../base/IconButton.js'
 import { IconDatabaseOutline16 } from '../base/icons.js'
+import { SummaryDialog } from './SummaryDialog.js'
 import { TokenUsagePanel } from './TokenUsagePanel.js'
 import styles from './TokenUsagePopover.module.css'
 
 const CLOSE_DURATION = 190
 
-export const TokenUsagePopover = ({ usage }: { usage: MessageUsage }) => {
+export const TokenUsagePopover = ({
+  usage,
+  sessionId,
+}: {
+  usage: MessageUsage
+  sessionId: string
+}) => {
   const t = useTranslate()
   const [open, setOpen] = useState(false)
   const [closing, setClosing] = useState(false)
+  const [summaryOpen, setSummaryOpen] = useState(false)
   const closeTimer = useRef(0)
   const { anchorRef, floatingRef, position, side } = useAnchoredPosition<
     HTMLSpanElement,
@@ -44,6 +52,12 @@ export const TokenUsagePopover = ({ usage }: { usage: MessageUsage }) => {
     window.clearTimeout(closeTimer.current)
     setClosing(false)
     setOpen(true)
+  }
+
+  // 点「总结」先收起面板，再打开弹窗，避免两层浮层叠在一起
+  const summarize = () => {
+    close()
+    setSummaryOpen(true)
   }
 
   useEffect(() => () => window.clearTimeout(closeTimer.current), [])
@@ -77,11 +91,17 @@ export const TokenUsagePopover = ({ usage }: { usage: MessageUsage }) => {
               <TokenUsagePanel
                 usage={summarizeUsage(usage)}
                 detailed={hasTokenBreakdown(usage)}
+                onSummarize={summarize}
               />
             </div>,
             document.body
           )
         : null}
+      <SummaryDialog
+        open={summaryOpen}
+        sessionId={sessionId}
+        onClose={() => setSummaryOpen(false)}
+      />
     </>
   )
 }

@@ -11,7 +11,7 @@ export type ThemePreference = 'light' | 'dark' | 'system'
 /** 思考内容的呈现方式：完全折叠 / 部分折叠（限高滚动）/ 不折叠 */
 export type ThinkingCollapse = 'full' | 'partial' | 'none'
 
-/** 对话内容与列表的字号档位；只在高级模式下可调，未保存过时标准 */
+/** 对话内容与列表的字号档位；未保存过时标准 */
 export type ChatFontSize = 'small' | 'standard' | 'large' | 'xlarge'
 
 /** 插件在本机的状态；默认关闭，config 由各插件自行约定形状 */

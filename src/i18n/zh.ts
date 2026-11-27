@@ -305,14 +305,10 @@ export const zh = {
   hiddenHistoryOff: '不隐藏',
   hiddenHistoryPinned: '隐藏置顶对话',
   hiddenHistoryAll: '隐藏所有对话',
-  hiddenHistoryDescriptionOff: '不隐藏任何对话。',
-  hiddenHistoryDescriptionPinned:
-    '置顶对话不会出现在列表中，搜索仍可找到；隐藏期间新置顶的对话也会隐藏。',
-  hiddenHistoryDescriptionAll:
-    '当前使用公开数据空间，私有空间的对话与附件不会出现在这里；导入、导出只作用于当前空间。',
+  hiddenHistoryDescription: '隐藏你的私密对话，当选择为隐藏全部对话会切换到另一个独立数据库。',
   hiddenHistoryBusy: '正在生成回复或处理数据，完成后可切换',
-  hiddenHistoryPublicSpace: '已切换到公开数据空间，原有对话仍保留在私有空间。',
-  hiddenHistoryPrivateSpace: '已切换回私有空间。',
+  hiddenHistoryPublicSpace: '已切换到公开数据空间，原有对话仍保留在私有空间',
+  hiddenHistoryPrivateSpace: '已切换回私有空间',
   hiddenHistorySwitchFailed: '切换数据空间失败，请重试',
   historyDeleting: '删除中...',
   historyDeleted: '删除成功',

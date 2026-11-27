@@ -1,6 +1,6 @@
 {
   "name": "deepseek-api-chat",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "基于 DeepSeek API 的静态聊天应用。",
   "license": "MIT",
   "private": true,

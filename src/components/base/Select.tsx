@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAnchoredPosition, useDismiss } from './anchored.js'
 import { IconCheckOutline16, IconChevronDownOutline14 } from './icons.js'
@@ -39,6 +39,12 @@ export const Select = <T extends string>({
   // Esc 只关菜单，不让外层弹窗一起关闭
   useDismiss(open, [anchorRef, floatingRef], () => setOpen(false), { captureEscape: true })
   const { mounted, visible } = usePresence(open)
+  // 禁用时先关闭菜单，让收起动画播完再卸载，而不是直接掐断 portal。
+  useEffect(() => {
+    if (disabled) {
+      setOpen(false)
+    }
+  }, [disabled])
   // 收起动画期间沿用最后的位置，避免菜单一边淡出一边跑回视口左上角
   const lastPosition = useRef(position)
   if (position) {
@@ -66,7 +72,7 @@ export const Select = <T extends string>({
           <IconChevronDownOutline14 />
         </span>
       </button>
-      {mounted && !disabled
+      {mounted
         ? createPortal(
             <div
               ref={floatingRef}

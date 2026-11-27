@@ -1175,12 +1175,6 @@ const blobToBase64 = (blob: Blob) =>
     reader.readAsDataURL(blob)
   })
 
-/** 将全部会话及图片导出为 ZIP 文件并下载 */
-const HIDDEN_HISTORY_DESCRIPTIONS = {
-  off: 'hiddenHistoryDescriptionOff',
-  pinned: 'hiddenHistoryDescriptionPinned',
-  all: 'hiddenHistoryDescriptionAll',
-} as const
 
 /** 隐藏历史对话：仅高级模式显示入口，关闭后选择继续在列表与数据库层生效。 */
 const HiddenHistorySetting = () => {
@@ -1223,7 +1217,7 @@ const HiddenHistorySetting = () => {
   return (
     <SettingCell
       label={t('hiddenHistoryLabel')}
-      description={t(HIDDEN_HISTORY_DESCRIPTIONS[mode])}
+      description={t('hiddenHistoryDescription')}
       status={null}
       action={
         <div className={styles.selectGuard}>
@@ -1252,6 +1246,7 @@ const HiddenHistorySetting = () => {
   )
 }
 
+/** 将全部会话及图片导出为 ZIP 文件并下载 */
 const ExportHistory = ({ disabled }: { disabled: boolean }) => {
   const t = useTranslate()
   const empty = useChatStore((state) => state.sessions.length === 0)

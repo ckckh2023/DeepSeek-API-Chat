@@ -17,6 +17,7 @@ import {
   PINNED_GROUP_KEY,
 } from '../../services/chat/sessionGroups.js'
 import { pinSessions, usePinnedSessions } from '../../services/chat/pinned.js'
+import { useHiddenHistory } from '../../services/hiddenHistory.js'
 import { newChat, removeSession, useChatStore } from '../../services/chat/store.js'
 import type { SessionSummary } from '../../services/chat/types.js'
 import { Button } from '../base/Button.js'
@@ -51,15 +52,22 @@ export const Sider = ({
   const sessions = useChatStore((state) => state.sessions)
   const activeId = useChatStore((state) => state.activeId)
   const [now, setNow] = useState(Date.now)
+  const hiddenMode = useHiddenHistory((state) => state.mode)
+  const hidePinned = hiddenMode === 'pinned'
   const pinnedIds = usePinnedSessions((state) => state.ids)
   const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds])
   const [visibleCount, setVisibleCount] = useState(() =>
     Math.max(PAGE_SIZE, scrollMemory.count)
   )
   const listRef = useRef<HTMLDivElement>(null)
+  /** 隐藏置顶只影响列表；搜索仍按全部对话索引。 */
+  const listSessions = useMemo(
+    () => (hidePinned ? sessions.filter((session) => !pinnedSet.has(session.id)) : sessions),
+    [sessions, hidePinned, pinnedSet]
+  )
   const groups = useMemo(
-    () => groupSessions(sessions, now, t, pinnedIds),
-    [sessions, now, t, pinnedIds]
+    () => groupSessions(listSessions, now, t, hidePinned ? [] : pinnedIds),
+    [listSessions, now, t, hidePinned, pinnedIds]
   )
   const total = useMemo(
     () => groups.reduce((count, group) => count + group.sessions.length, 0),

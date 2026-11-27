@@ -151,6 +151,20 @@
   padding: 0 13px;
 }
 
+.selectGuard {
+  position: relative;
+  display: inline-flex;
+}
+
+.selectGuardHit {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: not-allowed;
+}
+
 
 .description {
   font-size: 0.75rem;

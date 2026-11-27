@@ -1,4 +1,5 @@
 import { formatDate } from '../../utils/format.js'
+import { enterBackupTask, leaveBackupTask } from '../backupQueue.js'
 import * as db from './db.js'
 import { replaceHistory, useChatStore } from './store.js'
 import type { Session } from './types.js'
@@ -9,9 +10,10 @@ export { BackupError } from './history/errors.js'
 let backupQueue: Promise<unknown> = Promise.resolve()
 
 const enqueueBackup = <T>(run: () => Promise<T>): Promise<T> => {
+  enterBackupTask()
   const task = backupQueue.then(run)
   backupQueue = task.catch(() => {})
-  return task
+  return task.finally(leaveBackupTask)
 }
 
 const backupFileName = (date: Date) => `deepseek_data-${formatDate(date)}.zip`

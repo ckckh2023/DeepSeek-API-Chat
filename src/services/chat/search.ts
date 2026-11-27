@@ -22,6 +22,8 @@ type IndexedSession = { updatedAt: number; messages: IndexedMessage[] }
 const index = new Map<string, IndexedSession>()
 let initialized = false
 let loading: Promise<void> | null = null
+/** 切换数据空间时递增，进行中的构建结果据此丢弃。 */
+let indexEpoch = 0
 
 /** 每条消息取一条命中即可，结果太多反而难找 */
 const RESULT_LIMIT = 60
@@ -53,11 +55,17 @@ export const registerSession = (session: Session) => {
 }
 
 /** 只补读取摘要里新出现或更新时间变化的会话，删除的会话直接丢掉 */
-const refreshIndex = async () => {
+const refreshIndex = async (epoch: number) => {
+  if (epoch !== indexEpoch) {
+    return
+  }
   const state = useChatStore.getState()
   const summaries = state.sessions
   const known = new Set(summaries.map((session) => session.id))
   for (const id of [...index.keys()]) {
+    if (epoch !== indexEpoch) {
+      return
+    }
     if (!known.has(id)) {
       index.delete(id)
     }
@@ -72,30 +80,48 @@ const refreshIndex = async () => {
         const session = Object.hasOwn(cache, summary.id)
           ? cache[summary.id]
           : await loadSession(summary.id)
-        if (session) {
+        if (session && epoch === indexEpoch) {
           index.set(summary.id, buildEntry(session))
         }
       })
     )
+    if (epoch !== indexEpoch) {
+      return
+    }
   }
 }
 
 export const isSearchIndexReady = () => initialized
+
+/** 切换数据空间后丢弃旧库索引，下次打开搜索按当前库重建。 */
+export const resetSearchIndex = () => {
+  indexEpoch += 1
+  index.clear()
+  initialized = false
+  loading = null
+}
 
 /** 打开搜索时调用：首次全量读取，之后增量刷新 */
 export const ensureSearchIndex = (): Promise<void> => {
   if (loading) {
     return loading
   }
+  const epoch = indexEpoch
   loading = (async () => {
     try {
       // 会话列表还没加载完时先等初始化，否则索引会拿到空列表
       if (!useChatStore.getState().ready) {
         await initChat()
       }
+      if (epoch !== indexEpoch) {
+        return
+      }
       if (!initialized) {
         const known = new Set(useChatStore.getState().sessions.map((session) => session.id))
         const sessions = await loadAllSessions()
+        if (epoch !== indexEpoch) {
+          return
+        }
         for (const session of sessions) {
           // 读取期间被删除的会话不再进入索引
           if (known.has(session.id)) {
@@ -104,11 +130,15 @@ export const ensureSearchIndex = (): Promise<void> => {
         }
         initialized = true
       }
-      await refreshIndex()
+      await refreshIndex(epoch)
     } catch (error) {
-      reportStorageError('search sessions')(error)
+      if (epoch === indexEpoch) {
+        reportStorageError('search sessions')(error)
+      }
     } finally {
-      loading = null
+      if (epoch === indexEpoch) {
+        loading = null
+      }
     }
   })()
   return loading

@@ -21,7 +21,9 @@ import { isCapacitor, isTauri } from '../../app/platform.js'
 import { pushBackHandler } from '../../app/backStack.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { useAdvancedMode } from '../../services/advancedMode.js'
-import { useChatStore } from '../../services/chat/store.js'
+import { useChatStore, switchDataSpace } from '../../services/chat/store.js'
+import { useHiddenHistory, type HiddenHistoryMode } from '../../services/hiddenHistory.js'
+import { useBackupQueue } from '../../services/backupQueue.js'
 import {
   setChatFontSize,
   setLocale,
@@ -165,6 +167,7 @@ const SettingsContent = ({ state }: { state: 'open' | 'closed' }) => {
               />
 
               <ExportHistory disabled={historyBusy} />
+              <HiddenHistorySetting />
               <SettingCell
                 label={t('deleteAllSessions')}
                 status={null}
@@ -1173,6 +1176,82 @@ const blobToBase64 = (blob: Blob) =>
   })
 
 /** 将全部会话及图片导出为 ZIP 文件并下载 */
+const HIDDEN_HISTORY_DESCRIPTIONS = {
+  off: 'hiddenHistoryDescriptionOff',
+  pinned: 'hiddenHistoryDescriptionPinned',
+  all: 'hiddenHistoryDescriptionAll',
+} as const
+
+/** 隐藏历史对话：仅高级模式显示入口，关闭后选择继续在列表与数据库层生效。 */
+const HiddenHistorySetting = () => {
+  const t = useTranslate()
+  const advancedEnabled = useAdvancedMode((state) => state.enabled)
+  const mode = useHiddenHistory((state) => state.mode)
+  const importing = useChatStore((state) => state.importingHistory)
+  const streaming = useChatStore((state) => Object.keys(state.streaming).length > 0)
+  const backupPending = useBackupQueue((state) => state.pending > 0)
+  const [switching, setSwitching] = useState(false)
+  const busy = importing || streaming || backupPending || switching
+
+  if (!advancedEnabled) {
+    return null
+  }
+
+  const change = async (next: HiddenHistoryMode) => {
+    if (next === mode || busy) {
+      return
+    }
+    setSwitching(true)
+    try {
+      const switched = await switchDataSpace(next)
+      if (!switched) {
+        showToast({ key: 'hiddenHistoryBusy', type: 'error' })
+        return
+      }
+      if ((next === 'all') !== (mode === 'all')) {
+        showToast({
+          key: next === 'all' ? 'hiddenHistoryPublicSpace' : 'hiddenHistoryPrivateSpace',
+        })
+      }
+    } catch {
+      showToast({ key: 'hiddenHistorySwitchFailed', type: 'error' })
+    } finally {
+      setSwitching(false)
+    }
+  }
+
+  return (
+    <SettingCell
+      label={t('hiddenHistoryLabel')}
+      description={t(HIDDEN_HISTORY_DESCRIPTIONS[mode])}
+      status={null}
+      action={
+        <div className={styles.selectGuard}>
+          <Select
+            value={mode}
+            options={[
+              { value: 'off', label: t('hiddenHistoryOff') },
+              { value: 'pinned', label: t('hiddenHistoryPinned') },
+              { value: 'all', label: t('hiddenHistoryAll') },
+            ]}
+            onChange={(next) => void change(next)}
+            disabled={busy}
+            ariaLabel={t('hiddenHistoryLabel')}
+          />
+          {busy ? (
+            <button
+              type="button"
+              className={styles.selectGuardHit}
+              aria-label={t('hiddenHistoryBusy')}
+              onClick={() => showToast({ key: 'hiddenHistoryBusy', type: 'error' })}
+            />
+          ) : null}
+        </div>
+      }
+    />
+  )
+}
+
 const ExportHistory = ({ disabled }: { disabled: boolean }) => {
   const t = useTranslate()
   const empty = useChatStore((state) => state.sessions.length === 0)

@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
+import { usesPublicDataSpace } from '../hiddenHistory.js'
 import { toSessionSummary, type Session, type SessionSummary } from './types.js'
 
 /** IndexedDB 存储结构版本；新增或调整存储、索引时递增。 */
@@ -31,7 +32,12 @@ interface ChatDB extends DBSchema {
   filesStaging: { key: string; value: StoredFile }
 }
 
-let dbPromise: Promise<IDBPDatabase<ChatDB>> | null = null
+const DATABASE_NAME = 'deepseek-api-chat'
+/** 公开数据空间：结构相同的独立库，首次使用时按同一 schema 新建。 */
+const PUBLIC_DATABASE_NAME = 'deepseek-api-chat-public'
+
+/** 按库名缓存连接；切换数据空间时统一关闭。 */
+const connections = new Map<string, Promise<IDBPDatabase<ChatDB>>>()
 
 const storedSummary = (session: Session): StoredSessionSummary => ({
   ...toSessionSummary(session),
@@ -53,8 +59,8 @@ const abortTransaction = (tx: { abort(): void }) => {
 }
 
 // 每个操作拿到连接后立即创建事务；IndexedDB 按创建顺序执行范围重叠的事务，读取总能看到之前发起的写入。
-const getDB = () =>
-  (dbPromise ??= openDB<ChatDB>('deepseek-api-chat', DB_VERSION, {
+const openChatDB = (name: string) =>
+  openDB<ChatDB>(name, DB_VERSION, {
     upgrade(db, _oldVersion, _newVersion, tx) {
       // 初始化当前格式需要的存储与索引，不迁移旧消息。
       for (const name of ['sessions', 'files', 'sessionsStaging', 'filesStaging'] as const) {
@@ -69,11 +75,40 @@ const getDB = () =>
         summaries.createIndex('fileIds', 'fileIds', { multiEntry: true })
       }
     },
-  }).catch((error: unknown) => {
-    // 打开失败后允许界面重试，避免一直复用已拒绝的 Promise。
-    dbPromise = null
-    throw error
-  }))
+  })
+
+/** 当前档位使用公开库时读写公开库，其余档位继续使用原有私有库。 */
+const getDB = () => {
+  const name = usesPublicDataSpace() ? PUBLIC_DATABASE_NAME : DATABASE_NAME
+  let connection = connections.get(name)
+  if (!connection) {
+    const opening = openChatDB(name)
+    connection = opening.catch((error: unknown) => {
+      // 打开失败后允许界面重试，避免一直复用已拒绝的 Promise。
+      if (connections.get(name) === connection) {
+        connections.delete(name)
+      }
+      throw error
+    })
+    connections.set(name, connection)
+  }
+  return connection
+}
+
+/** 切换数据空间前关闭全部连接，下次访问按当前档位重新打开目标库。 */
+export const closeDatabaseConnections = async (): Promise<void> => {
+  const closing = [...connections.values()]
+  connections.clear()
+  await Promise.all(
+    closing.map(async (connection) => {
+      try {
+        ;(await connection).close()
+      } catch {
+        // 连接已关闭或从未成功打开。
+      }
+    })
+  )
+}
 
 export const loadSessionSummaries = async (): Promise<SessionSummary[]> =>
   (await (await getDB()).getAll('sessionSummaries')).map(toSessionSummary)
@@ -151,6 +186,9 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
 }
 
 const putFiles = async (store: 'files' | 'filesStaging', files: StoredFile[]) => {
+  if (!files.length) {
+    return
+  }
   const tx = (await getDB()).transaction(store, 'readwrite')
   await Promise.all([...files.map((file) => tx.store.put(file)), tx.done])
 }
@@ -170,8 +208,12 @@ export const clearStaging = async (): Promise<void> => {
   ])
 }
 
-export const addStagingSession = async (session: Session): Promise<void> => {
-  await (await getDB()).add('sessionsStaging', session)
+export const addStagingSessions = async (sessions: Session[]): Promise<void> => {
+  if (!sessions.length) {
+    return
+  }
+  const tx = (await getDB()).transaction('sessionsStaging', 'readwrite')
+  await Promise.all([...sessions.map((session) => tx.store.add(session)), tx.done])
 }
 
 export const saveStagingFiles = (files: StoredFile[]): Promise<void> =>
@@ -180,35 +222,46 @@ export const saveStagingFiles = (files: StoredFile[]): Promise<void> =>
 /** 图片位于会话 JSON 之后；全部读完后回填具体 MIME，保留归档给出的 isImage 标识。 */
 export const updateStagingFileTypes = async (
   types: ReadonlyMap<string, string>,
+  sessionIds: ReadonlySet<string>,
   onProgress?: (ratio: number) => void
 ): Promise<void> => {
+  if (sessionIds.size === 0) {
+    return
+  }
   const tx = (await getDB()).transaction('sessionsStaging', 'readwrite')
+  const total = sessionIds.size
+  let done = 0
   await Promise.all([
     (async () => {
-      const total = await tx.store.count()
-      let done = 0
-      for (let cursor = await tx.store.openCursor(); cursor; cursor = await cursor.continue()) {
-        const session = cursor.value
-        let changed = false
-        for (const message of session.messages) {
-          if (message.role !== 'user') {
-            continue
-          }
-          for (const file of message.files) {
-            const type = types.get(file.id) ?? ''
-            if (file.mimeType !== type) {
-              file.mimeType = type
-              changed = true
+      try {
+        for (const id of sessionIds) {
+          const session = await tx.store.get(id)
+          if (session) {
+            let changed = false
+            for (const message of session.messages) {
+              if (message.role !== 'user') {
+                continue
+              }
+              for (const file of message.files) {
+                const type = types.get(file.id) ?? ''
+                if (file.mimeType !== type) {
+                  file.mimeType = type
+                  changed = true
+                }
+              }
+            }
+            if (changed) {
+              await tx.store.put(session)
             }
           }
+          done += 1
+          if (total > 0) {
+            onProgress?.(done / total)
+          }
         }
-        if (changed) {
-          await cursor.update(session)
-        }
-        done += 1
-        if (total > 0) {
-          onProgress?.(done / total)
-        }
+      } catch (error) {
+        abortTransaction(tx)
+        throw error
       }
     })(),
     tx.done,

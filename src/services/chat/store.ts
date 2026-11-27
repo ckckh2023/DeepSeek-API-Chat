@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { createId } from '../../utils/id.js'
-import { prunePinnedSessions, removePinnedSession } from './pinned.js'
+import { prunePinnedSessions, reloadPinnedSessions, removePinnedSession } from './pinned.js'
+import { setHiddenHistoryMode, useHiddenHistory, type HiddenHistoryMode } from '../hiddenHistory.js'
+import { useBackupQueue } from '../backupQueue.js'
 import { ApiError, streamMessage } from '../api/client.js'
 import { composeSystemPrompt } from '../../plugins/index.js'
 import type { CreateMessageRequest } from '../api/types.js'
@@ -158,6 +160,8 @@ let accessSequence = 0
 let historyEpoch = 0
 let initTask: Promise<void> | undefined
 const sessionLoads = new Map<string, { promise: Promise<void> }>()
+/** 已发出但尚未完成的会话落盘数；切换数据空间前必须归零。 */
+let pendingWrites = 0
 
 const touchSession = (id: string) => sessionAccess.set(id, ++accessSequence)
 
@@ -230,6 +234,7 @@ const persist = (sessionId: string) => {
     }
     const epoch = historyEpoch
     const files = pendingFiles.get(sessionId)
+    pendingWrites += 1
     void db
       .saveSession(session, files)
       .then(() => {
@@ -256,6 +261,9 @@ const persist = (sessionId: string) => {
             sessionSaveErrors: { ...state.sessionSaveErrors, [sessionId]: true },
           }))
         }
+      })
+      .finally(() => {
+        pendingWrites -= 1
       })
   }
 }
@@ -499,6 +507,83 @@ export const replaceHistory = async (
       void initChat()
     }
   }
+}
+
+/** 生成、未完成落盘、备份队列与单条删除都结束后才允许切换数据空间。 */
+export const canSwitchDataSpace = () =>
+  !get().importingHistory &&
+  Object.keys(get().streaming).length === 0 &&
+  deletionTasks.size === 0 &&
+  pendingWrites === 0 &&
+  useBackupQueue.getState().pending === 0
+
+/** 等正在写盘的会话全部落地；超时视为仍有任务，不切换。 */
+const waitForPendingWrites = async (timeoutMs: number) => {
+  const started = Date.now()
+  while (pendingWrites > 0) {
+    if (Date.now() - started > timeoutMs) {
+      return false
+    }
+    await new Promise((resolve) => setTimeout(resolve, 16))
+  }
+  return true
+}
+
+/** 跨私有/公开库切换：换档位并丢弃所有按旧库建立的内存状态。 */
+const resetForDataSpace = async (mode: HiddenHistoryMode) => {
+  setHiddenHistoryMode(mode)
+  historyEpoch += 1
+  initTask = undefined
+  sessionLoads.clear()
+  sessionAccess.clear()
+  unsavedSessions.clear()
+  pendingFiles.clear()
+  clearAllDrafts()
+  for (const id of Object.keys(useUploads.getState().tasks)) {
+    cancelUpload(id)
+  }
+  useUploads.setState({ tasks: {} })
+  const { resetSearchIndex } = await import('./search.js')
+  resetSearchIndex()
+  await db.closeDatabaseConnections()
+  reloadPinnedSessions()
+  set({
+    ready: false,
+    initError: false,
+    sessions: [],
+    sessionCache: {},
+    sessionLoadErrors: {},
+    sessionSaveErrors: {},
+    activeId: null,
+    streaming: {},
+  })
+}
+
+/**
+ * 切换隐藏历史对话档位。off 与 pinned 只换设置；跨私有/公开库时重置连接与内存。
+ * 返回 false 表示仍有任务在跑；目标库打开失败时回滚档位并抛错。
+ */
+export const switchDataSpace = async (mode: HiddenHistoryMode): Promise<boolean> => {
+  const current = useHiddenHistory.getState().mode
+  if (current === mode) {
+    return true
+  }
+  if (!canSwitchDataSpace() || !(await waitForPendingWrites(2000))) {
+    return false
+  }
+  if ((current === 'all') === (mode === 'all')) {
+    setHiddenHistoryMode(mode)
+    return true
+  }
+  await resetForDataSpace(mode)
+  await initChat()
+  if (!get().ready) {
+    setHiddenHistoryMode(current)
+    await resetForDataSpace(current)
+    await initChat()
+    throw new Error('Failed to open data space')
+  }
+  return true
 }
 
 export const newChat = () => {

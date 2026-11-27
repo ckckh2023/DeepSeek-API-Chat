@@ -13,6 +13,8 @@ declare const styles: {
   readonly "apiKeyHeader": string;
   readonly "apiGuide": string;
   readonly "uploadButton": string;
+  readonly "selectGuard": string;
+  readonly "selectGuardHit": string;
 
   readonly "description": string;
   readonly "error": string;

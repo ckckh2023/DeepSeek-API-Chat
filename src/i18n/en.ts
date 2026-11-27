@@ -315,6 +315,20 @@ export const en = {
   deleteAllSessionsModalTitle: 'Once deleted, all chats will be cleared and cannot be recovered.',
   deleteAllSessionsModalDescription:
     'Locally saved attachments and unsent drafts will also be deleted.',
+  hiddenHistoryLabel: 'Hide chat history',
+  hiddenHistoryOff: 'Do not hide',
+  hiddenHistoryPinned: 'Hide pinned chats',
+  hiddenHistoryAll: 'Hide all chats',
+  hiddenHistoryDescriptionOff: 'No chats are hidden.',
+  hiddenHistoryDescriptionPinned:
+    'Pinned chats stay out of the list but remain searchable; chats pinned while this is on are hidden too.',
+  hiddenHistoryDescriptionAll:
+    'You are in the public data space. Chats and attachments in the private space are not shown here; import and export only affect the current space.',
+  hiddenHistoryBusy: 'A reply or data task is running. Try again when it finishes.',
+  hiddenHistoryPublicSpace:
+    'Switched to the public data space. Your original chats remain in the private space.',
+  hiddenHistoryPrivateSpace: 'Switched back to the private space.',
+  hiddenHistorySwitchFailed: 'Failed to switch data space. Please try again.',
   historyDeleting: 'Deleting...',
   historyDeleted: 'Successfully deleted.',
   historyDeleteFailed: 'Failed to delete chats. Please try again.',

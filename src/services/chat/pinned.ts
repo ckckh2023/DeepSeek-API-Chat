@@ -1,10 +1,15 @@
 import { create } from 'zustand'
+import { usesPublicDataSpace } from '../hiddenHistory.js'
 
 const KEY = 'deepseek-api-chat:pinned-sessions'
+/** 公开数据空间的置顶独立保存，避免切换档位后互相清理。 */
+const PUBLIC_KEY = `${KEY}:public`
+
+const key = () => (usesPublicDataSpace() ? PUBLIC_KEY : KEY)
 
 const read = (): string[] => {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(KEY) ?? '[]')
+    const value: unknown = JSON.parse(localStorage.getItem(key()) ?? '[]')
     return Array.isArray(value)
       ? [...new Set(value.filter((id): id is string => typeof id === 'string'))]
       : []
@@ -15,7 +20,7 @@ const read = (): string[] => {
 
 const write = (ids: string[]) => {
   try {
-    localStorage.setItem(KEY, JSON.stringify(ids))
+    localStorage.setItem(key(), JSON.stringify(ids))
   } catch {
     // 无法持久化时只保留本次打开期间的置顶状态。
   }
@@ -23,6 +28,11 @@ const write = (ids: string[]) => {
 
 /** 置顶会话 id，顺序即列表里的展示顺序；会话正文与摘要仍存在 IndexedDB。 */
 export const usePinnedSessions = create(() => ({ ids: read() }))
+
+/** 切换数据空间后按当前库重读置顶。 */
+export const reloadPinnedSessions = () => {
+  usePinnedSessions.setState({ ids: read() })
+}
 
 const apply = (ids: string[]) => {
   write(ids)

@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core'
+
 /** 每块攒到 256KB 再跨桥写入：块太大占内存，太小会增加 bridge 调用次数 */
 const CHUNK_BYTES = 256 * 1024
 
@@ -10,7 +12,11 @@ const bytesToBase64 = (bytes: Uint8Array): string => {
   return btoa(binary)
 }
 
-export type ArchiveWriteResult = { uri: string }
+export type ArchiveWriteResult = {
+  uri: string
+  /** iOS 直接写进应用 Documents，可在「文件」App 里看到 */
+  savedToDocuments: boolean
+}
 
 export type ArchiveFileWriter = {
   push: (chunk: Uint8Array) => Promise<void>
@@ -18,14 +24,16 @@ export type ArchiveFileWriter = {
 }
 
 /**
- * 移动端流式导出：先分块写进应用缓存，内存里只有当前块。
- * 写完拿到缓存 uri，再交给原生 SAF「保存到」对话框复制到用户选的位置；
- * 公共 Documents 在 Android 10+ 不能直接写，所以不再尝试直写。
+ * 移动端流式导出：边生成边分块写，内存里只有当前块。
+ * iOS 直接写应用 Documents（配合 Info.plist 文件共享，用户能在「文件」App 里找到）；
+ * 安卓写缓存后再交给原生 SAF「保存到」对话框，因为公共 Documents 在 Android 10+ 不能直接写。
  */
 export const createArchiveFileWriter = async (name: string): Promise<ArchiveFileWriter> => {
   const { Filesystem, Directory } = await import('@capacitor/filesystem')
-  // 覆盖上一次中断留下的同名缓存
-  await Filesystem.deleteFile({ path: name, directory: Directory.Cache }).catch(() => {})
+  const target = Capacitor.getPlatform() === 'ios' ? Directory.Documents : Directory.Cache
+  const savedToDocuments = target === Directory.Documents
+  // 覆盖上一次中断留下的同名文件
+  await Filesystem.deleteFile({ path: name, directory: target }).catch(() => {})
   let parts: Uint8Array[] = []
   let size = 0
   let created = false
@@ -43,12 +51,12 @@ export const createArchiveFileWriter = async (name: string): Promise<ArchiveFile
     size = 0
     const data = bytesToBase64(merged)
     if (created) {
-      await Filesystem.appendFile({ path: name, data, directory: Directory.Cache })
+      await Filesystem.appendFile({ path: name, data, directory: target })
     } else {
       await Filesystem.writeFile({
         path: name,
         data,
-        directory: Directory.Cache,
+        directory: target,
         recursive: true,
       })
       created = true
@@ -65,8 +73,8 @@ export const createArchiveFileWriter = async (name: string): Promise<ArchiveFile
     },
     finish: async () => {
       await flush()
-      const { uri } = await Filesystem.getUri({ path: name, directory: Directory.Cache })
-      return { uri }
+      const { uri } = await Filesystem.getUri({ path: name, directory: target })
+      return { uri, savedToDocuments }
     },
   }
 }

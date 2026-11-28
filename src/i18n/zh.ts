@@ -294,6 +294,10 @@ export const zh = {
   historyExportedDocuments: '已导出 {count} 个对话，文件已保存到 Documents 文件夹',
   historyExportedSaved: '已导出 {count} 个对话，文件已保存到你选择的位置',
   historyExportedSavedOne: '已导出 1 个对话，文件已保存到你选择的位置',
+  historyExportedSavedIos:
+    '已导出 {count} 个对话，文件可以在文件 App → 我的 iPhone → DeepSeek API Chat 里找到',
+  historyExportedSavedIosOne:
+    '已导出 1 个对话，文件可以在文件 App → 我的 iPhone → DeepSeek API Chat 里找到',
   historyExportShare: '保存聊天记录',
   historyExportFailed: '导出失败：{message}',
   historyExportPreparing: '准备导出 {done}/{total}',

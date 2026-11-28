@@ -307,6 +307,10 @@ export const en = {
   historyExportedDocuments: 'Exported {count} chats to the Documents folder',
   historyExportedSaved: 'Exported {count} chats; the file has been saved to the location you chose',
   historyExportedSavedOne: 'Exported 1 chat; the file has been saved to the location you chose',
+  historyExportedSavedIos:
+    'Exported {count} chats; the file can be found in Files → On My iPhone → DeepSeek API Chat',
+  historyExportedSavedIosOne:
+    'Exported 1 chat; the file can be found in Files → On My iPhone → DeepSeek API Chat',
   historyExportShare: 'Save chat history',
   historyExportFailed: 'Export failed: {message}',
   historyExportPreparing: 'Preparing {done}/{total}',

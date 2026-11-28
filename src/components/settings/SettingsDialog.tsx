@@ -1262,7 +1262,15 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
         const writer = await createArchiveFileWriter(name)
         const count = await exportHistoryToSink(setProgress, writer.push)
         setProgress({ phase: 'saving' })
-        const { uri } = await writer.finish()
+        const { uri, savedToDocuments } = await writer.finish()
+        if (savedToDocuments) {
+          // iOS 已直接写进应用 Documents（Info.plist 开启文件共享后可在「文件」App 看到）
+          setStatus({
+            key: count === 1 ? 'historyExportedSavedIosOne' : 'historyExportedSavedIos',
+            params: { count },
+          })
+          return
+        }
         const saveResult = await saveNativeDocument(uri, name)
         if (saveResult === 'cancelled') {
           return

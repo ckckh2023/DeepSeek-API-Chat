@@ -55,6 +55,15 @@ if (existsSync(plistPath)) {
     ])
   }
 
+  // 导出 ZIP 直接写应用 Documents，并让它在「文件」App →「我的 iPhone」→ 本应用 里可见。
+  if (!plist.includes('UIFileSharingEnabled')) {
+    plist = insertPlistLines(plist, ['<key>UIFileSharingEnabled</key>', '<true/>'])
+  }
+
+  if (!plist.includes('LSSupportsOpeningDocumentsInPlace')) {
+    plist = insertPlistLines(plist, ['<key>LSSupportsOpeningDocumentsInPlace</key>', '<true/>'])
+  }
+
   // 声明支持中文：没有这一个列表，iOS 会把 App 当成「只支持英文」，
   // WKWebView 里长按的拷贝/粘贴菜单、相册与文件选择的系统按钮都会是英文。
   const localizationKey = 'CFBundleLocalizations'

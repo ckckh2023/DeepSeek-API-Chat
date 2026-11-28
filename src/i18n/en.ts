@@ -307,6 +307,9 @@ export const en = {
   historyExportedDocuments: 'Exported {count} chats to the Documents folder',
   historyExportShare: 'Save chat history',
   historyExportFailed: 'Export failed: {message}',
+  historyExportPreparing: 'Preparing export ({done}/{total})',
+  historyExportPacking: 'Packing ZIP ({percent}%)',
+  historyExportSaving: 'Saving export file…',
   exportAllLabel: 'Export all chats',
   historyExportDescription:
     'Includes all chat history and locally stored images. Other attachments retain file details only. Your API Key is not included.',

@@ -1,6 +1,11 @@
 import clsx from 'clsx'
 import { useEffect, useRef, useState } from 'react'
 import { pushBackHandler } from '../../app/backStack.js'
+import {
+  canPickNativeDocuments,
+  pickNativeDocuments,
+  readPickedDocument,
+} from '../../app/nativeDocuments.js'
 import { isWebApp } from '../../app/platform.js'
 import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
 import { ShareError } from '../../services/chat/share/errors.js'
@@ -63,6 +68,30 @@ export const ImportDialog = ({
     return null
   }
 
+  const pickArchive = () => {
+    if (disabled || archiveBusy) {
+      return
+    }
+    if (canPickNativeDocuments()) {
+      // 安卓走系统 SAF，小米等 ROM 会进入「安全访问」的文件选择器
+      void pickNativeDocuments().then(async (result) => {
+        if (result.kind === 'unavailable') {
+          inputRef.current?.click()
+          return
+        }
+        if (result.kind === 'cancelled' || result.items.length === 0) {
+          return
+        }
+        try {
+          onSelectArchive(await readPickedDocument(result.items[0]))
+        } catch {
+          showToast(t('attachmentReadFailed'))
+        }
+      })
+      return
+    }
+    inputRef.current?.click()
+  }
   const submit = async () => {
     const value = link.trim()
     if (!value || linkBusy || disabled) {
@@ -114,7 +143,7 @@ export const ImportDialog = ({
                 size="m"
                 className={clsx(settingsStyles.cellButton, settingsStyles.uploadButton)}
                 disabled={disabled || archiveBusy}
-                onClick={() => inputRef.current?.click()}
+                onClick={pickArchive}
               >
                 <IconUploadOutline14 />
                 {t('importHistoryAction')}

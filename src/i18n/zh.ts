@@ -294,6 +294,9 @@ export const zh = {
   historyExportedDocuments: '已导出 {count} 个对话，文件已保存到 Documents 文件夹',
   historyExportShare: '保存聊天记录',
   historyExportFailed: '导出失败：{message}',
+  historyExportPreparing: '正在准备导出（{done}/{total}）',
+  historyExportPacking: '正在打包 ZIP（{percent}%）',
+  historyExportSaving: '正在保存导出文件…',
   exportAllLabel: '导出所有历史对话',
   historyExportDescription:
     '包含所有历史对话及本地图片原件；其他附件仅保留文件信息，不包含 API Key。',

@@ -16,7 +16,9 @@ import {
   clearHistory,
   exportHistory,
   importHistory,
+  type HistoryExportProgress,
 } from '../../services/chat/backup.js'
+import { ExportProgress } from './ExportProgress.js'
 import { isCapacitor, isTauri } from '../../app/platform.js'
 import { pushBackHandler } from '../../app/backStack.js'
 import { useIsMobile } from '../../app/viewport.js'
@@ -1252,13 +1254,17 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
   const empty = useChatStore((state) => state.sessions.length === 0)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<Status>(null)
+  const [progress, setProgress] = useState<HistoryExportProgress | null>(null)
 
   const onExport = async () => {
     setBusy(true)
     setStatus(null)
+    setProgress({ phase: 'collecting', done: 0, total: 0 })
     let savedToDocuments = false
     try {
-      const { name, blob, count } = await exportHistory()
+      const { name, blob, count } = await exportHistory(setProgress)
+      // 打包完成后进入写文件/分享阶段，进度条转为「正在保存」
+      setProgress({ phase: 'saving' })
       if (isTauri()) {
         const [{ save }, { writeFile }] = await Promise.all([
           import('@tauri-apps/plugin-dialog'),
@@ -1327,22 +1333,29 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
   }
 
   return (
-    <SettingCell
-      label={t('exportAllLabel')}
-      description={t('historyExportDescription')}
-      status={status}
-      action={
-        <Button
-          variant="outlined"
-          size="m"
-          className={styles.cellButton}
-          disabled={disabled || busy || empty}
-          onClick={() => void onExport()}
-        >
-          <IconDownloadOutline16 />
-          {t('exportAllDownload')}
-        </Button>
-      }
-    />
+    <>
+      <SettingCell
+        label={t('exportAllLabel')}
+        description={t('historyExportDescription')}
+        status={status}
+        action={
+          <Button
+            variant="outlined"
+            size="m"
+            className={styles.cellButton}
+            disabled={disabled || busy || empty}
+            onClick={() => void onExport()}
+          >
+            <IconDownloadOutline16 />
+            {t('exportAllDownload')}
+          </Button>
+        }
+      />
+      {progress ? (
+        <div className={styles.exportProgress}>
+          <ExportProgress progress={progress} />
+        </div>
+      ) : null}
+    </>
   )
 }

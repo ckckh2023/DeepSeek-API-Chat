@@ -548,6 +548,11 @@
   min-width: 0;
 }
 
+/* 导出进度条：短暂出现在导出项下方 */
+.exportProgress {
+  padding: 0 0 12px;
+}
+
 .importProgressTrack {
   flex: 1;
   min-width: 0;

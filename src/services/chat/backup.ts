@@ -1,10 +1,14 @@
 import { formatDate } from '../../utils/format.js'
 import { enterBackupTask, leaveBackupTask } from '../backupQueue.js'
 import * as db from './db.js'
+import type { ExportArchiveProgress } from './history/exportArchive.js'
 import { replaceHistory, useChatStore } from './store.js'
 import type { Session } from './types.js'
 
 export { BackupError } from './history/errors.js'
+
+/** 导出进度：收集会话、打包 ZIP，最后交给系统保存 */
+export type HistoryExportProgress = ExportArchiveProgress | { phase: 'saving' }
 
 // 导入、导出与全部删除串行处理，避免读取归档时数据被清空或两个替换事务交错。
 let backupQueue: Promise<unknown> = Promise.resolve()
@@ -19,7 +23,9 @@ const enqueueBackup = <T>(run: () => Promise<T>): Promise<T> => {
 const backupFileName = (date: Date) => `deepseek_data-${formatDate(date)}.zip`
 
 /** 导出为历史会话导出格式的 ZIP，可再次导入。 */
-export const exportHistory = (): Promise<{ name: string; blob: Blob; count: number }> =>
+export const exportHistory = (
+  onProgress?: (progress: HistoryExportProgress) => void
+): Promise<{ name: string; blob: Blob; count: number }> =>
   enqueueBackup(async () => {
     // 列表和已加载内容保留导出开始时的快照；未打开的会话逐条读取，不填满详情缓存。
     const { sessions, sessionCache } = useChatStore.getState()
@@ -37,7 +43,10 @@ export const exportHistory = (): Promise<{ name: string; blob: Blob; count: numb
     }
     const { exportArchive } = await import('./history/exportArchive.js')
     const now = new Date()
-    const blob = await exportArchive(readSessions())
+    const blob = await exportArchive(readSessions(), {
+      total: sessions.length,
+      onProgress,
+    })
     return { name: backupFileName(now), blob, count: sessions.length }
   })
 

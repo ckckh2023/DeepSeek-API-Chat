@@ -38,6 +38,7 @@ const mainActivitySource = (packageName) => `package ${packageName};
 
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Color;
@@ -96,6 +97,8 @@ public class MainActivity extends BridgeActivity {
   private String pendingExportPath = null;
   /** 拍照输出到缓存的文件路径，拍完回传页面 */
   private String pendingPhotoPath = null;
+  /** 相机若写进 MediaStore，这里保存 content uri，拍完再复制回缓存并删除媒体记录 */
+  private String pendingPhotoUri = null;
 
   @Override
   @SuppressWarnings("deprecation")
@@ -483,12 +486,26 @@ public class MainActivity extends BridgeActivity {
   /** 相机返回后把缓存照片交给页面；取消、文件为空分别回调 */
   private void finishNativePhoto(int resultCode) {
     String path = pendingPhotoPath;
+    String uri = pendingPhotoUri;
     pendingPhotoPath = null;
+    pendingPhotoUri = null;
     if (resultCode != RESULT_OK || path == null) {
       notifyPhotoCancelled();
       return;
     }
     File file = new File(path);
+    if (uri != null) {
+      // 相机写进了 MediaStore：先复制回缓存，再删掉刚插入的媒体记录
+      if (!copyUriToFile(uri, file)) {
+        notifyPhotoFailed();
+        return;
+      }
+      try {
+        getContentResolver().delete(Uri.parse(uri), null, null);
+      } catch (Exception ignored) {
+        // 删除媒体记录失败不影响本次拍照
+      }
+    }
     if (!file.exists() || file.length() <= 0) {
       file.delete();
       notifyPhotoFailed();
@@ -503,6 +520,54 @@ public class MainActivity extends BridgeActivity {
       notifyPhotoPicked(item.toString());
     } catch (Exception error) {
       notifyPhotoFailed();
+    }
+  }
+
+  /** 先 FileProvider 输出缓存文件；不支持时退回 MediaStore，拍完再复制回缓存 */
+  private Uri createPhotoOutputUri() {
+    File dir = new File(getCacheDir(), ATTACHMENT_CACHE_DIR);
+    if (!dir.exists() && !dir.mkdirs()) {
+      return null;
+    }
+    File output = new File(dir, "photo-" + System.currentTimeMillis() + ".jpg");
+    pendingPhotoPath = output.getAbsolutePath();
+    pendingPhotoUri = null;
+    try {
+      return FileProvider.getUriForFile(
+          MainActivity.this, getPackageName() + ".fileprovider", output);
+    } catch (Exception ignored) {
+      // 兼容层可能不认 FileProvider，改用 MediaStore 输出
+    }
+    try {
+      ContentValues values = new ContentValues();
+      values.put(MediaStore.Images.Media.DISPLAY_NAME, output.getName());
+      values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+      Uri uri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+      if (uri != null) {
+        pendingPhotoUri = uri.toString();
+        return uri;
+      }
+    } catch (Exception ignored) {
+      // 无法创建输出位置
+    }
+    pendingPhotoPath = null;
+    return null;
+  }
+
+  private boolean copyUriToFile(String uriText, File target) {
+    try (InputStream input = getContentResolver().openInputStream(Uri.parse(uriText));
+        OutputStream output = new FileOutputStream(target)) {
+      if (input == null) {
+        return false;
+      }
+      byte[] buffer = new byte[64 * 1024];
+      int read;
+      while ((read = input.read(buffer)) != -1) {
+        output.write(buffer, 0, read);
+      }
+      return true;
+    } catch (Exception error) {
+      return false;
     }
   }
 
@@ -660,27 +725,20 @@ public class MainActivity extends BridgeActivity {
       runOnUiThread(
           () -> {
             Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            if (intent.resolveActivity(getPackageManager()) == null) {
+            Uri output = createPhotoOutputUri();
+            if (output == null) {
               notifyPhotoUnavailable();
               return;
             }
-            File dir = new File(getCacheDir(), ATTACHMENT_CACHE_DIR);
-            if (!dir.exists() && !dir.mkdirs()) {
-              notifyPhotoFailed();
-              return;
-            }
-            File output = new File(dir, "photo-" + System.currentTimeMillis() + ".jpg");
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, output);
+            intent.addFlags(
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
             try {
-              Uri uri =
-                  FileProvider.getUriForFile(
-                      MainActivity.this, getPackageName() + ".fileprovider", output);
-              intent.putExtra(MediaStore.EXTRA_OUTPUT, uri);
-              intent.addFlags(
-                  Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
-              pendingPhotoPath = output.getAbsolutePath();
+              // 不先用 resolveActivity 判断：卓易通等兼容层会让它返回 null，但实际能启动相机
               startActivityForResult(intent, REQUEST_TAKE_PHOTO);
-            } catch (Exception error) {
+            } catch (ActivityNotFoundException error) {
               pendingPhotoPath = null;
+              pendingPhotoUri = null;
               notifyPhotoUnavailable();
             }
           });

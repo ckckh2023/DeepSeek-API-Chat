@@ -548,14 +548,20 @@
   min-width: 0;
 }
 
-/* 导出进度条：跟在标题说明下方、整行宽度 */
+/* 导出进度条：与导出按钮同一行，空间不够时先压缩它 */
 .exportProgress {
-  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  flex: 0 1 140px;
+  min-width: 72px;
+  max-width: 140px;
 }
 
-/* 一行放不下时先缩短进度条，把空间留给百分比文字 */
+/* 一行放不下时先缩短进度条，把空间留给右侧小字 */
 .exportProgressTrack {
-  max-width: 180px;
+  flex: 1 1 auto;
+  min-width: 32px;
+  max-width: 100%;
 }
 
 .importProgressTrack {
@@ -577,6 +583,7 @@
 
 .importProgressText {
   flex-shrink: 0;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

@@ -1332,7 +1332,7 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
       <div className={styles.row}>
         <div className={styles.text}>
           <div className={styles.label}>{t('exportAllLabel')}</div>
-          {/* 导出中进度条占据说明文案的位置，结束后再显示结果/说明 */}
+          {/* 导出中隐藏说明文案，结束后再显示结果/说明 */}
           {progress ? null : (
             <div className={clsx(styles.description, status?.error && styles.error)}>
               {status
@@ -1341,22 +1341,24 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
             </div>
           )}
         </div>
-        <Button
-          variant="outlined"
-          size="m"
-          className={styles.cellButton}
-          disabled={disabled || busy || empty}
-          onClick={() => void onExport()}
-        >
-          <IconDownloadOutline16 />
-          {t('exportAllDownload')}
-        </Button>
-      </div>
-      {progress ? (
-        <div className={styles.exportProgress}>
-          <ExportProgress progress={progress} />
+        <div className={styles.cellActions}>
+          {progress ? (
+            <div className={styles.exportProgress}>
+              <ExportProgress progress={progress} />
+            </div>
+          ) : null}
+          <Button
+            variant="outlined"
+            size="m"
+            className={styles.cellButton}
+            disabled={disabled || busy || empty}
+            onClick={() => void onExport()}
+          >
+            <IconDownloadOutline16 />
+            {t('exportAllDownload')}
+          </Button>
         </div>
-      ) : null}
+      </div>
     </div>
   )
 }

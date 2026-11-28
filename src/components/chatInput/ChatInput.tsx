@@ -241,8 +241,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
       // 安卓优先由原生发起系统相机：卓易通等兼容层只会把原生发起的拍照 Intent 映射到相机
       void takeNativePhoto().then(async (result) => {
         if (result.kind === 'unavailable') {
-          // 没有相机入口时回退到原来的 <input capture>
-          cameraInputRef.current?.click()
+          // 桥存在但环境没有可用相机：明确提示，不再回退 <input>（兼容层里那会进相册）
+          showToast(t('attachmentCameraUnavailable'))
           return
         }
         if (result.kind === 'cancelled') {

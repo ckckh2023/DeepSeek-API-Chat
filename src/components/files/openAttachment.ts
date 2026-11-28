@@ -189,22 +189,27 @@ export const openAttachment = async ({
   id,
   name,
   objectUrl,
+  blob: provided,
 }: {
-  id: string
+  id?: string
   name: string
   /** 网页版已生成的 blob 地址，用于 PDF 同步开新标签，避免被当成弹窗拦截 */
   objectUrl?: string | null
+  /** 输入框草稿还没写入 IndexedDB 时直接传本地原件 */
+  blob?: Blob
 }) => {
   const ext = getFileExt(name)
   if (isWebApp() && ext === 'pdf' && objectUrl) {
     window.open(objectUrl, '_blank', 'noreferrer')
     return
   }
-  let blob: Blob | undefined
-  try {
-    blob = await loadFile(id)
-  } catch {
-    blob = undefined
+  let blob: Blob | undefined = provided
+  if (!blob && id) {
+    try {
+      blob = await loadFile(id)
+    } catch {
+      blob = undefined
+    }
   }
   if (!blob) {
     return

@@ -1254,15 +1254,14 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
       if (isCapacitor()) {
         // 移动端边生成边写文件：内存里只保留当前会话与一块写缓冲
         const name = historyArchiveFileName()
-        const { createArchiveFileWriter, commitArchiveFile } = await import(
+        const { createArchiveFileWriter } = await import(
           '../../services/chat/history/exportFile.js'
         )
         setProgress({ phase: 'writing', percent: 0 })
         const writer = await createArchiveFileWriter(name)
         const count = await exportHistoryToSink(setProgress, writer.push)
-        await writer.finish()
         setProgress({ phase: 'saving' })
-        const result = await commitArchiveFile(name)
+        const result = await writer.finish()
         if (!result.savedToDocuments) {
           // 个别系统不允许直接写公共目录，退回缓存文件交给系统分享面板保存
           const uri = result.uri
@@ -1327,11 +1326,14 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
       <div className={styles.row}>
         <div className={styles.text}>
           <div className={styles.label}>{t('exportAllLabel')}</div>
-          <div className={clsx(styles.description, status?.error && styles.error)}>
-            {status
-              ? t(status.key, status.reason ? { message: t(status.reason) } : status.params)
-              : t('historyExportDescription')}
-          </div>
+          {/* 导出中进度条占据说明文案的位置，结束后再显示结果/说明 */}
+          {progress ? null : (
+            <div className={clsx(styles.description, status?.error && styles.error)}>
+              {status
+                ? t(status.key, status.reason ? { message: t(status.reason) } : status.params)
+                : t('historyExportDescription')}
+            </div>
+          )}
         </div>
         <Button
           variant="outlined"

@@ -305,6 +305,8 @@ export const en = {
   historyExportedOne: 'Exported 1 chat',
   historyExported: 'Exported {count} chats',
   historyExportedDocuments: 'Exported {count} chats to the Documents folder',
+  historyExportedSaved: 'Exported {count} chats; the file has been saved to the location you chose',
+  historyExportedSavedOne: 'Exported 1 chat; the file has been saved to the location you chose',
   historyExportShare: 'Save chat history',
   historyExportFailed: 'Export failed: {message}',
   historyExportPreparing: 'Preparing export ({done}/{total})',

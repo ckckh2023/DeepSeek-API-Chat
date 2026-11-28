@@ -23,7 +23,7 @@ export const ExportProgress = ({ progress }: { progress: HistoryExportProgress }
       aria-valuemax={100}
       aria-valuenow={percent}
     >
-      <span className={styles.importProgressTrack}>
+      <span className={clsx(styles.importProgressTrack, styles.exportProgressTrack)}>
         <span
           className={clsx(
             styles.importProgressFill,

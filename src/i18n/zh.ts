@@ -292,6 +292,8 @@ export const zh = {
   historyExportedOne: '已导出 1 个对话',
   historyExported: '已导出 {count} 个对话',
   historyExportedDocuments: '已导出 {count} 个对话，文件已保存到 Documents 文件夹',
+  historyExportedSaved: '已导出 {count} 个对话，文件已保存到你选择的位置',
+  historyExportedSavedOne: '已导出 1 个对话，文件已保存到你选择的位置',
   historyExportShare: '保存聊天记录',
   historyExportFailed: '导出失败：{message}',
   historyExportPreparing: '正在准备导出（{done}/{total}）',

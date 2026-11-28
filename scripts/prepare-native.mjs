@@ -84,8 +84,12 @@ public class MainActivity extends BridgeActivity {
   private final Rect visibleRect = new Rect();
   /** 系统文档选择器（SAF）的请求码 */
   private static final int REQUEST_PICK_DOCUMENTS = 0x4d31;
+  /** 系统「保存到」对话框（SAF 创建文档）的请求码 */
+  private static final int REQUEST_SAVE_DOCUMENT = 0x4d32;
   /** 选中的文件先复制到应用缓存，页面读成 Blob 后立即删掉 */
   private static final String ATTACHMENT_CACHE_DIR = "attachments";
+  /** 导出时待复制的缓存 ZIP 路径，用户选定保存位置后由它复制过去 */
+  private String pendingExportPath = null;
 
   @Override
   @SuppressWarnings("deprecation")
@@ -218,6 +222,16 @@ public class MainActivity extends BridgeActivity {
    */
   @Override
   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    if (requestCode == REQUEST_SAVE_DOCUMENT) {
+      String source = pendingExportPath;
+      pendingExportPath = null;
+      if (resultCode != RESULT_OK || data == null || data.getData() == null || source == null) {
+        notifyDocumentSaveCancelled();
+        return;
+      }
+      copyExportToUri(source, data.getData());
+      return;
+    }
     if (requestCode != REQUEST_PICK_DOCUMENTS) {
       super.onActivityResult(requestCode, resultCode, data);
       return;
@@ -297,6 +311,39 @@ public class MainActivity extends BridgeActivity {
       }
     }
     return items;
+  }
+
+  /** 用户选好保存位置后，把缓存里的 ZIP 原样复制过去（全程在原生层，不经过页面 base64） */
+  private void copyExportToUri(String sourcePath, Uri target) {
+    new Thread(
+            () -> {
+              boolean ok = true;
+              Uri source = Uri.parse(sourcePath);
+              String path = "file".equals(source.getScheme()) ? source.getPath() : sourcePath;
+              try (InputStream input = new FileInputStream(new File(path));
+                  OutputStream output = getContentResolver().openOutputStream(target, "wt")) {
+                if (output == null) {
+                  throw new IllegalStateException("No output stream for export target");
+                }
+                byte[] buffer = new byte[64 * 1024];
+                int read;
+                while ((read = input.read(buffer)) != -1) {
+                  output.write(buffer, 0, read);
+                }
+              } catch (Exception error) {
+                ok = false;
+              }
+              final boolean saved = ok;
+              runOnUiThread(
+                  () -> {
+                    if (saved) {
+                      notifyDocumentSaved();
+                    } else {
+                      notifyDocumentSaveFailed();
+                    }
+                  });
+            })
+        .start();
   }
 
   private String queryDisplayName(Uri uri) {
@@ -422,6 +469,31 @@ public class MainActivity extends BridgeActivity {
                 null));
   }
 
+  /** 导出保存结果统一走这里回调页面 */
+  private void notifyPage(String script) {
+    WebView webView = getBridge() == null ? null : getBridge().getWebView();
+    if (webView == null) {
+      return;
+    }
+    webView.post(() -> webView.evaluateJavascript(script, null));
+  }
+
+  private void notifyDocumentSaved() {
+    notifyPage("window.__nativeDocumentSaved&&window.__nativeDocumentSaved()");
+  }
+
+  private void notifyDocumentSaveCancelled() {
+    notifyPage("window.__nativeDocumentSaveCancelled&&window.__nativeDocumentSaveCancelled()");
+  }
+
+  private void notifyDocumentSaveFailed() {
+    notifyPage("window.__nativeDocumentSaveFailed&&window.__nativeDocumentSaveFailed()");
+  }
+
+  private void notifyDocumentSaveUnavailable() {
+    notifyPage("window.__nativeDocumentSaveUnavailable&&window.__nativeDocumentSaveUnavailable()");
+  }
+
   private void applyIconTheme(boolean dark) {
     WindowInsetsControllerCompat controller =
         WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
@@ -528,6 +600,25 @@ public class MainActivity extends BridgeActivity {
       } catch (Exception ignored) {
         // 路径不合法时不处理
       }
+    }
+
+    /** 导出完成后让用户在系统「保存到」对话框里选位置（含 Documents），零存储权限 */
+    @JavascriptInterface
+    public void saveDocument(String sourcePath, String name) {
+      runOnUiThread(
+          () -> {
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/zip");
+            intent.putExtra(Intent.EXTRA_TITLE, name);
+            pendingExportPath = sourcePath;
+            try {
+              startActivityForResult(intent, REQUEST_SAVE_DOCUMENT);
+            } catch (ActivityNotFoundException ignored) {
+              pendingExportPath = null;
+              notifyDocumentSaveUnavailable();
+            }
+          });
     }
   }
 }

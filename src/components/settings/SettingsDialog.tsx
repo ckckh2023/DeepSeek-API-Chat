@@ -22,6 +22,7 @@ import {
 } from '../../services/chat/backup.js'
 import { ExportProgress } from './ExportProgress.js'
 import { isCapacitor, isTauri } from '../../app/platform.js'
+import { saveNativeDocument } from '../../app/nativeDocuments.js'
 import { pushBackHandler } from '../../app/backStack.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { useAdvancedMode } from '../../services/advancedMode.js'
@@ -1261,10 +1262,16 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
         const writer = await createArchiveFileWriter(name)
         const count = await exportHistoryToSink(setProgress, writer.push)
         setProgress({ phase: 'saving' })
-        const result = await writer.finish()
-        if (!result.savedToDocuments) {
-          // 个别系统不允许直接写公共目录，退回缓存文件交给系统分享面板保存
-          const uri = result.uri
+        const { uri } = await writer.finish()
+        const saveResult = await saveNativeDocument(uri, name)
+        if (saveResult === 'cancelled') {
+          return
+        }
+        if (saveResult === 'failed') {
+          throw new Error('Failed to copy export archive to the selected location')
+        }
+        if (saveResult === 'unavailable') {
+          // 旧包没有原生保存桥：退回系统分享面板，由用户自行保存
           const { Share } = await import('@capacitor/share')
           try {
             await Share.share({
@@ -1280,11 +1287,10 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
             throw error
           }
         }
-        setStatus(
-          result.savedToDocuments
-            ? { key: 'historyExportedDocuments', params: { count } }
-            : { key: count === 1 ? 'historyExportedOne' : 'historyExported', params: { count } }
-        )
+        setStatus({
+          key: count === 1 ? 'historyExportedSavedOne' : 'historyExportedSaved',
+          params: { count },
+        })
         return
       }
       setProgress({ phase: 'collecting', done: 0, total: 0 })

@@ -12,16 +12,23 @@ export type NativePickResult =
   | { kind: 'cancelled' }
   | { kind: 'unavailable' }
 
+export type NativeSaveResult = 'saved' | 'cancelled' | 'failed' | 'unavailable'
+
 let pending: ((result: NativePickResult) => void) | null = null
+let pendingSave: ((result: NativeSaveResult) => void) | null = null
 
 declare global {
   interface Window {
     __nativeDocumentsPicked?: (items: PickedDocument[]) => void
     __nativeDocumentsUnavailable?: () => void
+    __nativeDocumentSaved?: () => void
+    __nativeDocumentSaveCancelled?: () => void
+    __nativeDocumentSaveFailed?: () => void
+    __nativeDocumentSaveUnavailable?: () => void
   }
 }
 
-/** App 启动时调用一次：原生把选中的文件复制完，回传缓存路径列表 */
+/** App 启动时调用一次：原生把选中的文件复制完，或导出保存结束，回传结果 */
 export const setupNativeDocuments = () => {
   window.__nativeDocumentsPicked = (items) => {
     const settle = pending
@@ -33,6 +40,15 @@ export const setupNativeDocuments = () => {
     pending = null
     settle?.({ kind: 'unavailable' })
   }
+  const settleSave = (result: NativeSaveResult) => {
+    const settle = pendingSave
+    pendingSave = null
+    settle?.(result)
+  }
+  window.__nativeDocumentSaved = () => settleSave('saved')
+  window.__nativeDocumentSaveCancelled = () => settleSave('cancelled')
+  window.__nativeDocumentSaveFailed = () => settleSave('failed')
+  window.__nativeDocumentSaveUnavailable = () => settleSave('unavailable')
 }
 
 /** 只有安卓原生桥支持 SAF；iOS 与网页端继续走原来的 <input> */
@@ -78,4 +94,33 @@ export const readPickedDocument = async (picked: PickedDocument): Promise<File> 
   } finally {
     window.SystemBars?.deleteCachedDocument?.(picked.path)
   }
+}
+/** 只有安卓原生桥支持系统「保存到」对话框 */
+export const canSaveNativeDocument = () =>
+  Capacitor.getPlatform() === 'android' && typeof window.SystemBars?.saveDocument === 'function'
+
+/**
+ * 让用户在系统「保存到」对话框里选位置（可选 Documents / 下载 / 网盘），
+ * 原生把缓存 ZIP 复制过去；返回 unavailable 时由调用方回退到分享面板。
+ */
+export const saveNativeDocument = (
+  sourcePath: string,
+  name: string
+): Promise<NativeSaveResult> => {
+  if (!canSaveNativeDocument()) {
+    return Promise.resolve('unavailable')
+  }
+  if (pendingSave) {
+    return Promise.resolve('failed')
+  }
+  return new Promise((resolve) => {
+    pendingSave = resolve
+    try {
+      // 必须带着桥接对象调用，不能把方法单独拆出来
+      window.SystemBars?.saveDocument?.(sourcePath, name)
+    } catch {
+      pendingSave = null
+      resolve('unavailable')
+    }
+  })
 }

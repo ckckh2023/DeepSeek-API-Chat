@@ -553,6 +553,11 @@
   margin-top: 8px;
 }
 
+/* 一行放不下时先缩短进度条，把空间留给百分比文字 */
+.exportProgressTrack {
+  max-width: 180px;
+}
+
 .importProgressTrack {
   flex: 1;
   min-width: 0;

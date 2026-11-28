@@ -15,6 +15,8 @@ type SystemBarsBridge = {
   pickDocuments?: () => void
   /** 删除原生缓存里的附件副本 */
   deleteCachedDocument?: (path: string) => void
+  /** 打开系统「保存到」对话框，把缓存里的 ZIP 复制到用户选择的位置 */
+  saveDocument?: (sourcePath: string, name: string) => void
 }
 
 type Insets = { top: number; bottom: number }

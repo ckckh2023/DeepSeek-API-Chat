@@ -357,6 +357,7 @@ export const zh = {
   attachmentAlbum: '相册',
   attachmentFiles: '文件',
   attachmentReadFailed: '无法读取所选文件，请重试',
+  attachmentPhotoFailed: '拍照失败，请重试',
   chatInputStopButtonTooltip: '停止生成',
   uploadMaxMBSize: '单个文件大小超过限制（{size}MB），请调整后重试',
   uploadMaxFiles: '上传文件最多支持 {count} 个',

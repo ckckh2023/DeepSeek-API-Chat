@@ -17,6 +17,8 @@ type SystemBarsBridge = {
   deleteCachedDocument?: (path: string) => void
   /** 打开系统「保存到」对话框，把缓存里的 ZIP 复制到用户选择的位置 */
   saveDocument?: (sourcePath: string, name: string) => void
+  /** 由原生直接发起系统相机（卓易通等兼容层要靠原生发起才会映射到相机） */
+  takePhoto?: () => void
 }
 
 type Insets = { top: number; bottom: number }

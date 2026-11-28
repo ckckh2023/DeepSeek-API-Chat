@@ -14,8 +14,15 @@ export type NativePickResult =
 
 export type NativeSaveResult = 'saved' | 'cancelled' | 'failed' | 'unavailable'
 
+export type NativePhotoResult =
+  | { kind: 'picked'; item: PickedDocument }
+  | { kind: 'cancelled' }
+  | { kind: 'failed' }
+  | { kind: 'unavailable' }
+
 let pending: ((result: NativePickResult) => void) | null = null
 let pendingSave: ((result: NativeSaveResult) => void) | null = null
+let pendingPhoto: ((result: NativePhotoResult) => void) | null = null
 
 declare global {
   interface Window {
@@ -25,6 +32,10 @@ declare global {
     __nativeDocumentSaveCancelled?: () => void
     __nativeDocumentSaveFailed?: () => void
     __nativeDocumentSaveUnavailable?: () => void
+    __nativePhotoPicked?: (item: PickedDocument) => void
+    __nativePhotoCancelled?: () => void
+    __nativePhotoFailed?: () => void
+    __nativePhotoUnavailable?: () => void
   }
 }
 
@@ -49,6 +60,15 @@ export const setupNativeDocuments = () => {
   window.__nativeDocumentSaveCancelled = () => settleSave('cancelled')
   window.__nativeDocumentSaveFailed = () => settleSave('failed')
   window.__nativeDocumentSaveUnavailable = () => settleSave('unavailable')
+  const settlePhoto = (result: NativePhotoResult) => {
+    const settle = pendingPhoto
+    pendingPhoto = null
+    settle?.(result)
+  }
+  window.__nativePhotoPicked = (item) => settlePhoto({ kind: 'picked', item })
+  window.__nativePhotoCancelled = () => settlePhoto({ kind: 'cancelled' })
+  window.__nativePhotoFailed = () => settlePhoto({ kind: 'failed' })
+  window.__nativePhotoUnavailable = () => settlePhoto({ kind: 'unavailable' })
 }
 
 /** 只有安卓原生桥支持 SAF；iOS 与网页端继续走原来的 <input> */
@@ -121,6 +141,29 @@ export const saveNativeDocument = (
     } catch {
       pendingSave = null
       resolve('unavailable')
+    }
+  })
+}
+/** 只有安卓原生桥支持由原生直接发起系统相机 */
+export const canTakeNativePhoto = () =>
+  Capacitor.getPlatform() === 'android' && typeof window.SystemBars?.takePhoto === 'function'
+
+/** 原生直接拉起系统相机；返回 unavailable 时调用方回退到 <input capture> */
+export const takeNativePhoto = (): Promise<NativePhotoResult> => {
+  if (!canTakeNativePhoto()) {
+    return Promise.resolve({ kind: 'unavailable' })
+  }
+  if (pendingPhoto) {
+    return Promise.resolve({ kind: 'failed' })
+  }
+  return new Promise((resolve) => {
+    pendingPhoto = resolve
+    try {
+      // 必须带着桥接对象调用，不能把方法单独拆出来
+      window.SystemBars?.takePhoto?.()
+    } catch {
+      pendingPhoto = null
+      resolve({ kind: 'unavailable' })
     }
   })
 }

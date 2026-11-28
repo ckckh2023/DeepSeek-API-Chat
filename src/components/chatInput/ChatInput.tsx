@@ -41,8 +41,10 @@ import { ensureApiKey } from '../settings/settingsDialogState.js'
 import { useMobileSider } from '../sider/mobileSiderState.js'
 import {
   canPickNativeDocuments,
+  canTakeNativePhoto,
   pickNativeDocuments,
   readPickedDocument,
+  takeNativePhoto,
 } from '../../app/nativeDocuments.js'
 import { AttachmentSheet, type AttachmentSource } from './AttachmentSheet.js'
 import { DragMask, useFileDrop } from './DragMask.js'
@@ -229,6 +231,29 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
         }
         try {
           acceptFiles(await Promise.all(result.items.map(readPickedDocument)))
+        } catch {
+          showToast(t('attachmentReadFailed'))
+        }
+      })
+      return
+    }
+    if (source === 'camera' && canTakeNativePhoto()) {
+      // 安卓优先由原生发起系统相机：卓易通等兼容层只会把原生发起的拍照 Intent 映射到相机
+      void takeNativePhoto().then(async (result) => {
+        if (result.kind === 'unavailable') {
+          // 没有相机入口时回退到原来的 <input capture>
+          cameraInputRef.current?.click()
+          return
+        }
+        if (result.kind === 'cancelled') {
+          return
+        }
+        if (result.kind === 'failed') {
+          showToast(t('attachmentPhotoFailed'))
+          return
+        }
+        try {
+          acceptFiles([await readPickedDocument(result.item)])
         } catch {
           showToast(t('attachmentReadFailed'))
         }

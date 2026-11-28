@@ -45,6 +45,7 @@ import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.view.View;
 import android.view.Window;
@@ -86,10 +87,14 @@ public class MainActivity extends BridgeActivity {
   private static final int REQUEST_PICK_DOCUMENTS = 0x4d31;
   /** 系统「保存到」对话框（SAF 创建文档）的请求码 */
   private static final int REQUEST_SAVE_DOCUMENT = 0x4d32;
+  /** 原生拍照（系统相机）的请求码 */
+  private static final int REQUEST_TAKE_PHOTO = 0x4d33;
   /** 选中的文件先复制到应用缓存，页面读成 Blob 后立即删掉 */
   private static final String ATTACHMENT_CACHE_DIR = "attachments";
   /** 导出时待复制的缓存 ZIP 路径，用户选定保存位置后由它复制过去 */
   private String pendingExportPath = null;
+  /** 拍照输出到缓存的文件路径，拍完回传页面 */
+  private String pendingPhotoPath = null;
 
   @Override
   @SuppressWarnings("deprecation")
@@ -222,6 +227,10 @@ public class MainActivity extends BridgeActivity {
    */
   @Override
   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    if (requestCode == REQUEST_TAKE_PHOTO) {
+      finishNativePhoto(resultCode);
+      return;
+    }
     if (requestCode == REQUEST_SAVE_DOCUMENT) {
       String source = pendingExportPath;
       pendingExportPath = null;
@@ -470,6 +479,48 @@ public class MainActivity extends BridgeActivity {
   }
 
   /** 导出保存结果统一走这里回调页面 */
+  /** 相机返回后把缓存照片交给页面；取消、文件为空分别回调 */
+  private void finishNativePhoto(int resultCode) {
+    String path = pendingPhotoPath;
+    pendingPhotoPath = null;
+    if (resultCode != RESULT_OK || path == null) {
+      notifyPhotoCancelled();
+      return;
+    }
+    File file = new File(path);
+    if (!file.exists() || file.length() <= 0) {
+      file.delete();
+      notifyPhotoFailed();
+      return;
+    }
+    try {
+      JSONObject item = new JSONObject();
+      item.put("name", file.getName());
+      item.put("mime", "image/jpeg");
+      item.put("size", file.length());
+      item.put("path", file.getAbsolutePath());
+      notifyPhotoPicked(item.toString());
+    } catch (Exception error) {
+      notifyPhotoFailed();
+    }
+  }
+
+  private void notifyPhotoPicked(String json) {
+    notifyPage("window.__nativePhotoPicked&&window.__nativePhotoPicked(" + json + ")");
+  }
+
+  private void notifyPhotoCancelled() {
+    notifyPage("window.__nativePhotoCancelled&&window.__nativePhotoCancelled()");
+  }
+
+  private void notifyPhotoFailed() {
+    notifyPage("window.__nativePhotoFailed&&window.__nativePhotoFailed()");
+  }
+
+  private void notifyPhotoUnavailable() {
+    notifyPage("window.__nativePhotoUnavailable&&window.__nativePhotoUnavailable()");
+  }
+
   private void notifyPage(String script) {
     WebView webView = getBridge() == null ? null : getBridge().getWebView();
     if (webView == null) {
@@ -600,6 +651,38 @@ public class MainActivity extends BridgeActivity {
       } catch (Exception ignored) {
         // 路径不合法时不处理
       }
+    }
+
+    /** 拍照：由原生直接发起系统相机，卓易通等兼容层才会把它映射到相机而不是相册 */
+    @JavascriptInterface
+    public void takePhoto() {
+      runOnUiThread(
+          () -> {
+            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            if (intent.resolveActivity(getPackageManager()) == null) {
+              notifyPhotoUnavailable();
+              return;
+            }
+            File dir = new File(getCacheDir(), ATTACHMENT_CACHE_DIR);
+            if (!dir.exists() && !dir.mkdirs()) {
+              notifyPhotoFailed();
+              return;
+            }
+            File output = new File(dir, "photo-" + System.currentTimeMillis() + ".jpg");
+            try {
+              Uri uri =
+                  FileProvider.getUriForFile(
+                      MainActivity.this, getPackageName() + ".fileprovider", output);
+              intent.putExtra(MediaStore.EXTRA_OUTPUT, uri);
+              intent.addFlags(
+                  Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+              pendingPhotoPath = output.getAbsolutePath();
+              startActivityForResult(intent, REQUEST_TAKE_PHOTO);
+            } catch (Exception error) {
+              pendingPhotoPath = null;
+              notifyPhotoUnavailable();
+            }
+          });
     }
 
     /** 导出完成后让用户在系统「保存到」对话框里选位置（含 Documents），零存储权限 */

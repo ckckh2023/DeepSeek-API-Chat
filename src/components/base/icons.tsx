@@ -719,20 +719,20 @@ export const IconAddOutline16 = () => (
   </svg>
 )
 
-/** 拍照：相机轮廓，细线风格，颜色跟随 currentColor */
+/** 拍照：横向长方形机身 + 顶部取景器，细线风格，颜色跟随 currentColor */
 export const IconCameraOutline20 = () => (
   <svg width={20} height={20} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
-      d="M7.2 4.2h1.3l.9-1.5h1.2l.9 1.5h1.3c1.1 0 2 .9 2 2v9.2c0 1.1-.9 2-2 2H5.2c-1.1 0-2-.9-2-2V6.2c0-1.1.9-2 2-2z"
+      d="M2.4 7.4c0-1.1.9-2 2-2h2.8l.8-1.6h4l.8 1.6h2.8c1.1 0 2 .9 2 2v6.8c0 1.1-.9 2-2 2H4.4c-1.1 0-2-.9-2-2z"
       stroke="currentColor"
       strokeWidth={1.4}
       strokeLinejoin="round"
     />
-    <circle cx={10} cy={10.4} r={3.2} stroke="currentColor" strokeWidth={1.4} />
+    <circle cx={10} cy={10.8} r={2.8} stroke="currentColor" strokeWidth={1.4} />
   </svg>
 )
 
-/** 相册：图片轮廓，细线风格，颜色跟随 currentColor */
+/** 相册：图片轮廓，太阳位于左上，细线风格，颜色跟随 currentColor */
 export const IconPhotoOutline20 = () => (
   <svg width={20} height={20} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect
@@ -744,7 +744,7 @@ export const IconPhotoOutline20 = () => (
       stroke="currentColor"
       strokeWidth={1.4}
     />
-    <circle cx={7.4} cy={8} r={1.4} stroke="currentColor" strokeWidth={1.4} />
+    <circle cx={6.5} cy={6.8} r={1.4} stroke="currentColor" strokeWidth={1.4} />
     <path
       d="M3.2 14.4l4.3-4.3 2.9 2.9 2.4-2.1 3.9 3.9"
       stroke="currentColor"
@@ -755,16 +755,16 @@ export const IconPhotoOutline20 = () => (
   </svg>
 )
 
-/** 文件：折角文档轮廓，细线风格，颜色跟随 currentColor */
+/** 文件：加宽的折角文档轮廓，细线风格，颜色跟随 currentColor */
 export const IconFileOutline20 = () => (
   <svg width={20} height={20} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
-      d="M5.4 2.6h5.3l4 4v10.1c0 .6-.5 1.1-1.1 1.1H6.5c-.6 0-1.1-.5-1.1-1.1V3.7c0-.6.5-1.1 1.1-1.1z"
+      d="M4.5 3.6c0-.6.5-1.1 1.1-1.1h5.3l4.6 4.6v9.2c0 .6-.5 1.1-1.1 1.1H5.6c-.6 0-1.1-.5-1.1-1.1z"
       stroke="currentColor"
       strokeWidth={1.4}
       strokeLinejoin="round"
     />
-    <path d="M10.7 2.7v4h4" stroke="currentColor" strokeWidth={1.4} strokeLinejoin="round" />
+    <path d="M10.9 2.7v4.4h4.6" stroke="currentColor" strokeWidth={1.4} strokeLinejoin="round" />
   </svg>
 )
 

@@ -98,19 +98,20 @@ export const exportArchiveStream = async (
           }
         }
       }
-      const images: { name: string; blob: Blob }[] = []
+      const images = new Map<string, Blob>()
       const data = toSessionFile(session, ({ id, name, isImage }) => {
         const blob = originals.get(id)
         if (!blob || !isImage) {
           return null
         }
         const path = imagePath(session.id, id, name)
-        images.push({ name: path, blob })
+        // 同一附件可能被多条消息重复引用：按条目名去重，否则 ZIP 里会出现同名条目
+        images.set(path, blob)
         return path
       })
       yield { name: sessionPath(session.id), blob: json(data) }
-      for (const image of images) {
-        yield image
+      for (const [name, blob] of images) {
+        yield { name, blob }
       }
       index.push(toIndexEntry(data))
       done += 1

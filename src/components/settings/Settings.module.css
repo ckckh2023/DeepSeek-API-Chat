@@ -548,9 +548,9 @@
   min-width: 0;
 }
 
-/* 导出进度条：短暂出现在导出项下方 */
+/* 导出进度条：跟在标题说明下方、整行宽度 */
 .exportProgress {
-  padding: 0 0 12px;
+  margin-top: 8px;
 }
 
 .importProgressTrack {

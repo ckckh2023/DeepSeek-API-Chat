@@ -1323,29 +1323,32 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
   }
 
   return (
-    <>
-      <SettingCell
-        label={t('exportAllLabel')}
-        description={t('historyExportDescription')}
-        status={status}
-        action={
-          <Button
-            variant="outlined"
-            size="m"
-            className={styles.cellButton}
-            disabled={disabled || busy || empty}
-            onClick={() => void onExport()}
-          >
-            <IconDownloadOutline16 />
-            {t('exportAllDownload')}
-          </Button>
-        }
-      />
+    <div className={styles.cell}>
+      <div className={styles.row}>
+        <div className={styles.text}>
+          <div className={styles.label}>{t('exportAllLabel')}</div>
+          <div className={clsx(styles.description, status?.error && styles.error)}>
+            {status
+              ? t(status.key, status.reason ? { message: t(status.reason) } : status.params)
+              : t('historyExportDescription')}
+          </div>
+        </div>
+        <Button
+          variant="outlined"
+          size="m"
+          className={styles.cellButton}
+          disabled={disabled || busy || empty}
+          onClick={() => void onExport()}
+        >
+          <IconDownloadOutline16 />
+          {t('exportAllDownload')}
+        </Button>
+      </div>
       {progress ? (
         <div className={styles.exportProgress}>
           <ExportProgress progress={progress} />
         </div>
       ) : null}
-    </>
+    </div>
   )
 }

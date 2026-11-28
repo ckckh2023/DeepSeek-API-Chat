@@ -20,7 +20,7 @@ import {
 } from '../base/icons.js'
 import { setSearch, setThinking, setThinkingEffort, useSettings } from '../../services/settings.js'
 import { useChatMode } from '../../services/chatMode.js'
-import { isCapacitor } from '../../app/platform.js'
+import { isAndroidApp } from '../../app/platform.js'
 import { stopMessageEdits, useIsMobile } from '../../app/viewport.js'
 import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
 import {
@@ -74,8 +74,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const thinking = useSettings((state) => state.thinking)
   const importingHistory = useChatStore((state) => state.importingHistory)
   const isMobile = useIsMobile()
-  // 只有 Capacitor 打包的安卓 / iOS App 用三入口面板；手机网页版保持直接选文件
-  const nativeAttach = isCapacitor()
+  // 只有安卓 App 用三入口面板；iOS 的 input 自带系统三菜单，网页版保持直接选文件
+  const nativeAttach = isAndroidApp()
   // 移动端右滑拉出对话列表时，附件面板要立刻让位，不能停在抽屉上面
   const siderActive = useMobileSider((state) => state.open || state.progress > 0)
   const search = useSettings((state) => state.search)

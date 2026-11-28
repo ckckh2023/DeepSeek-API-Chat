@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type ChangeEvent as ReactChangeEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
@@ -19,6 +20,7 @@ import {
 } from '../base/icons.js'
 import { setSearch, setThinking, setThinkingEffort, useSettings } from '../../services/settings.js'
 import { useChatMode } from '../../services/chatMode.js'
+import { isCapacitor } from '../../app/platform.js'
 import { stopMessageEdits, useIsMobile } from '../../app/viewport.js'
 import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
 import {
@@ -36,6 +38,7 @@ import { IconButton } from '../base/IconButton.js'
 import { useAnchoredPosition, useDismiss } from '../base/anchored.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { ensureApiKey } from '../settings/settingsDialogState.js'
+import { AttachmentSheet, type AttachmentSource } from './AttachmentSheet.js'
 import { DragMask, useFileDrop } from './DragMask.js'
 import { showToast } from '../base/toastState.js'
 import { ACCEPT, useUploads } from '../../services/attachments.js'
@@ -65,10 +68,15 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const thinking = useSettings((state) => state.thinking)
   const importingHistory = useChatStore((state) => state.importingHistory)
   const isMobile = useIsMobile()
+  // 只有 Capacitor 打包的安卓 / iOS App 用三入口面板；手机网页版保持直接选文件
+  const nativeAttach = isCapacitor()
   const search = useSettings((state) => state.search)
   const proMode = useChatMode((state) => state.mode === 'pro')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const albumInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [attachOpen, setAttachOpen] = useState(false)
   const togglesRef = useRef<HTMLDivElement>(null)
   const thinkingEffort = useSettings((state) => state.thinkingEffort)
   const [effortOpen, setEffortOpen] = useState(false)
@@ -188,6 +196,21 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     if (error) {
       showToast(error)
     }
+  }
+  const onInputChange = (event: ReactChangeEvent<HTMLInputElement>) => {
+    acceptFiles(Array.from(event.target.files ?? []))
+    event.target.value = ''
+  }
+  /** 收起面板后同步触发隐藏 input：iOS 要求 click 仍发生在用户手势里 */
+  const pickAttachment = (source: AttachmentSource) => {
+    setAttachOpen(false)
+    const input =
+      source === 'camera'
+        ? cameraInputRef.current
+        : source === 'album'
+          ? albumInputRef.current
+          : fileInputRef.current
+    input?.click()
   }
   const retryFile = useCallback(
     (id: string) => {
@@ -387,7 +410,18 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             icon={<IconPaperclipOutline16 />}
             tooltip={t('uploadFile')}
             disabled={importingHistory}
-            onClick={() => ensureApiKey() && fileInputRef.current?.click()}
+            onClick={() => {
+              if (!ensureApiKey()) {
+                return
+              }
+              if (nativeAttach) {
+                // 先收键盘再滑出面板，否则选择器返回后键盘会把面板顶住
+                textareaRef.current?.blur()
+                setAttachOpen(true)
+                return
+              }
+              fileInputRef.current?.click()
+            }}
           />
           <input
             ref={fileInputRef}
@@ -395,11 +429,28 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             multiple
             hidden
             accept={ACCEPT}
-            onChange={(event) => {
-              acceptFiles(Array.from(event.target.files ?? []))
-              event.target.value = ''
-            }}
+            onChange={onInputChange}
           />
+          {nativeAttach ? (
+            <>
+              <input
+                ref={cameraInputRef}
+                type="file"
+                hidden
+                accept="image/*"
+                capture="environment"
+                onChange={onInputChange}
+              />
+              <input
+                ref={albumInputRef}
+                type="file"
+                hidden
+                multiple
+                accept="image/*"
+                onChange={onInputChange}
+              />
+            </>
+          ) : null}
           {streaming && sessionId ? (
             <button
               type="button"
@@ -425,6 +476,13 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           )}
         </div>
       </div>
+      {nativeAttach ? (
+        <AttachmentSheet
+          open={attachOpen}
+          onClose={() => setAttachOpen(false)}
+          onPick={pickAttachment}
+        />
+      ) : null}
       {dragging ? <DragMask /> : null}
     </div>
   )

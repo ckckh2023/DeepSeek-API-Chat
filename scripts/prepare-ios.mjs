@@ -44,6 +44,17 @@ if (existsSync(plistPath)) {
     ])
   }
 
+  // 附件入口「拍照」调用系统相机：缺这一项时 WKWebView 一调用相机就会被系统终止。
+  // 系统相册用 PHPicker，由系统进程选择图片，因此不需要相册读取权限描述。
+  const cameraKey = 'NSCameraUsageDescription'
+
+  if (!plist.includes(cameraKey)) {
+    plist = insertPlistLines(plist, [
+      `<key>${cameraKey}</key>`,
+      '<string>用于拍照并作为附件发送</string>',
+    ])
+  }
+
   // 声明支持中文：没有这一个列表，iOS 会把 App 当成「只支持英文」，
   // WKWebView 里长按的拷贝/粘贴菜单、相册与文件选择的系统按钮都会是英文。
   const localizationKey = 'CFBundleLocalizations'

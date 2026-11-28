@@ -15,6 +15,8 @@ import {
   BackupError,
   clearHistory,
   exportHistory,
+  exportHistoryToSink,
+  historyArchiveFileName,
   importHistory,
   type HistoryExportProgress,
 } from '../../services/chat/backup.js'
@@ -1165,17 +1167,6 @@ const ImportHistory = ({
   )
 }
 
-/** 读取 Blob 为 base64（Capacitor 的 Filesystem 只接受 base64 字符串） */
-const blobToBase64 = (blob: Blob) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = String(reader.result)
-      resolve(result.slice(result.indexOf(',') + 1))
-    }
-    reader.onerror = () => reject(reader.error ?? new Error('Failed to read export archive'))
-    reader.readAsDataURL(blob)
-  })
 
 
 /** 隐藏历史对话：仅高级模式显示入口，关闭后选择继续在列表与数据库层生效。 */
@@ -1259,9 +1250,45 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
   const onExport = async () => {
     setBusy(true)
     setStatus(null)
-    setProgress({ phase: 'collecting', done: 0, total: 0 })
-    let savedToDocuments = false
     try {
+      if (isCapacitor()) {
+        // 移动端边生成边写文件：内存里只保留当前会话与一块写缓冲
+        const name = historyArchiveFileName()
+        const { createArchiveFileWriter, commitArchiveFile } = await import(
+          '../../services/chat/history/exportFile.js'
+        )
+        setProgress({ phase: 'writing', percent: 0 })
+        const writer = await createArchiveFileWriter(name)
+        const count = await exportHistoryToSink(setProgress, writer.push)
+        await writer.finish()
+        setProgress({ phase: 'saving' })
+        const result = await commitArchiveFile(name)
+        if (!result.savedToDocuments) {
+          // 个别系统不允许直接写公共目录，退回缓存文件交给系统分享面板保存
+          const uri = result.uri
+          const { Share } = await import('@capacitor/share')
+          try {
+            await Share.share({
+              title: name,
+              files: [uri.startsWith('file:') ? uri : `file://${uri}`],
+              dialogTitle: t('historyExportShare'),
+            })
+          } catch (error) {
+            // 用户在系统分享面板取消，不算导出失败。
+            if (/cancel/i.test(String((error as Error | undefined)?.message ?? error))) {
+              return
+            }
+            throw error
+          }
+        }
+        setStatus(
+          result.savedToDocuments
+            ? { key: 'historyExportedDocuments', params: { count } }
+            : { key: count === 1 ? 'historyExportedOne' : 'historyExported', params: { count } }
+        )
+        return
+      }
+      setProgress({ phase: 'collecting', done: 0, total: 0 })
       const { name, blob, count } = await exportHistory(setProgress)
       // 打包完成后进入写文件/分享阶段，进度条转为「正在保存」
       setProgress({ phase: 'saving' })
@@ -1278,40 +1305,6 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
           return
         }
         await writeFile(path, new Uint8Array(await blob.arrayBuffer()))
-      } else if (isCapacitor()) {
-        const { Filesystem, Directory } = await import('@capacitor/filesystem')
-        const data = await blobToBase64(blob)
-        try {
-          // 写入系统「文档」目录，用户可在文件管理器里直接看到导出的 ZIP
-          await Filesystem.writeFile({
-            path: name,
-            data,
-            directory: Directory.Documents,
-            recursive: true,
-          })
-          savedToDocuments = true
-        } catch {
-          // 个别系统不允许直接写公共目录，退回应用缓存并交给系统分享面板保存
-          const { uri } = await Filesystem.writeFile({
-            path: name,
-            data,
-            directory: Directory.Cache,
-          })
-          const { Share } = await import('@capacitor/share')
-          try {
-            await Share.share({
-              title: name,
-              files: [uri.startsWith('file:') ? uri : `file://${uri}`],
-              dialogTitle: t('historyExportShare'),
-            })
-          } catch (error) {
-            // 用户在系统分享面板取消，不算导出失败。
-            if (/cancel/i.test(String((error as Error | undefined)?.message ?? error))) {
-              return
-            }
-            throw error
-          }
-        }
       } else {
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
@@ -1320,15 +1313,12 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
         link.click()
         setTimeout(() => URL.revokeObjectURL(url), 10_000)
       }
-      setStatus(
-        savedToDocuments
-          ? { key: 'historyExportedDocuments', params: { count } }
-          : { key: count === 1 ? 'historyExportedOne' : 'historyExported', params: { count } }
-      )
+      setStatus({ key: count === 1 ? 'historyExportedOne' : 'historyExported', params: { count } })
     } catch (error) {
       setStatus(errorStatus('historyExportFailed', error))
     } finally {
       setBusy(false)
+      setProgress(null)
     }
   }
 

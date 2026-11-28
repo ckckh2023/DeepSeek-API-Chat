@@ -22,25 +22,36 @@ const enqueueBackup = <T>(run: () => Promise<T>): Promise<T> => {
 
 const backupFileName = (date: Date) => `deepseek_data-${formatDate(date)}.zip`
 
-/** 导出为历史会话导出格式的 ZIP，可再次导入。 */
+/** 流式导出前先确定目标文件名 */
+export const historyArchiveFileName = () => backupFileName(new Date())
+
+/**
+ * 导出开始时的会话快照：列表和已加载内容固定，
+ * 未打开的会话逐条读取，不把详情缓存撑大。
+ */
+const snapshotHistory = () => {
+  const { sessions, sessionCache } = useChatStore.getState()
+  async function* readSessions(): AsyncGenerator<Session> {
+    for (const summary of sessions) {
+      const session = Object.hasOwn(sessionCache, summary.id)
+        ? sessionCache[summary.id]
+        : await db.loadSession(summary.id)
+      if (!session) {
+        throw new Error(`History session disappeared during export: ${summary.id}`)
+      }
+      // 详情读取期间可能重命名，归档标题与开始时的列表保持一致。
+      yield { ...session, ...summary }
+    }
+  }
+  return { sessions, readSessions }
+}
+
+/** 导出为历史会话导出格式的 ZIP，可再次导入（桌面与网页用，结果在内存）。 */
 export const exportHistory = (
   onProgress?: (progress: HistoryExportProgress) => void
 ): Promise<{ name: string; blob: Blob; count: number }> =>
   enqueueBackup(async () => {
-    // 列表和已加载内容保留导出开始时的快照；未打开的会话逐条读取，不填满详情缓存。
-    const { sessions, sessionCache } = useChatStore.getState()
-    async function* readSessions(): AsyncGenerator<Session> {
-      for (const summary of sessions) {
-        const session = Object.hasOwn(sessionCache, summary.id)
-          ? sessionCache[summary.id]
-          : await db.loadSession(summary.id)
-        if (!session) {
-          throw new Error(`History session disappeared during export: ${summary.id}`)
-        }
-        // 详情读取期间可能重命名，归档标题与开始时的列表保持一致。
-        yield { ...session, ...summary }
-      }
-    }
+    const { sessions, readSessions } = snapshotHistory()
     const { exportArchive } = await import('./history/exportArchive.js')
     const now = new Date()
     const blob = await exportArchive(readSessions(), {
@@ -48,6 +59,24 @@ export const exportHistory = (
       onProgress,
     })
     return { name: backupFileName(now), blob, count: sessions.length }
+  })
+
+/**
+ * 流式导出（移动端用）：每块 ZIP 数据立即交给 onChunk 写文件，
+ * 内存里只保留当前会话，避免记录多时整包 ZIP 与整串 base64 撑爆 WebView。
+ */
+export const exportHistoryToSink = (
+  onProgress: (progress: HistoryExportProgress) => void,
+  onChunk: (chunk: Uint8Array) => Promise<void>
+): Promise<number> =>
+  enqueueBackup(async () => {
+    const { sessions, readSessions } = snapshotHistory()
+    const { exportArchiveStream } = await import('./history/exportArchive.js')
+    return exportArchiveStream(readSessions(), {
+      total: sessions.length,
+      onProgress,
+      onChunk,
+    })
   })
 
 /**

@@ -3,7 +3,7 @@ import type { Session } from '../types.js'
 import { EXPORT_FORMAT_VERSION, type Manifest, type SessionIndexEntry } from './format.js'
 import { INDEX_PATH, MANIFEST_PATH, imagePath, sessionPath } from './paths.js'
 import { toIndexEntry, toSessionFile } from './toArchive.js'
-import { writeArchive } from './zipWriter.js'
+import { writeArchive, writeArchiveStream } from './zipWriter.js'
 
 const json = (value: unknown) => new Blob([JSON.stringify(value)], { type: 'application/json' })
 

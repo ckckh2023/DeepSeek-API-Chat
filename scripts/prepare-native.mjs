@@ -36,12 +36,16 @@ if (existsSync(androidIcons) && existsSync(androidRes)) {
 // 所以由原生读出 WindowInsets，通过 SystemBars 接口和 window.__applySystemInsets 下发。
 const mainActivitySource = (packageName) => `package ${packageName};
 
+import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -57,7 +61,13 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.List;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  * 全面屏适配：状态栏与导航栏全透明、页面铺满整屏，
@@ -72,6 +82,10 @@ public class MainActivity extends BridgeActivity {
   private FrameLayout.LayoutParams contentChildParams;
   private int usableHeightPrevious = 0;
   private final Rect visibleRect = new Rect();
+  /** 系统文档选择器（SAF）的请求码 */
+  private static final int REQUEST_PICK_DOCUMENTS = 0x4d31;
+  /** 选中的文件先复制到应用缓存，页面读成 Blob 后立即删掉 */
+  private static final String ATTACHMENT_CACHE_DIR = "attachments";
 
   @Override
   @SuppressWarnings("deprecation")
@@ -198,6 +212,118 @@ public class MainActivity extends BridgeActivity {
     super.onBackPressed();
   }
 
+  /**
+   * 文件入口走 SAF：系统文档选择器把用户主动选中的 URI 单次授权给应用，
+   * 不需要存储权限，也不会触发厂商的「读取文件」拦截。
+   */
+  @Override
+  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    if (requestCode != REQUEST_PICK_DOCUMENTS) {
+      super.onActivityResult(requestCode, resultCode, data);
+      return;
+    }
+    if (resultCode != RESULT_OK || data == null) {
+      // 用户取消：回空数组，页面不会触发回退
+      notifyDocumentsPicked("[]");
+      return;
+    }
+    ArrayList<Uri> uris = collectDocumentUris(data);
+    new Thread(
+            () -> {
+              String json = copyDocumentsToCache(uris).toString();
+              runOnUiThread(() -> notifyDocumentsPicked(json));
+            })
+        .start();
+  }
+
+  private ArrayList<Uri> collectDocumentUris(Intent data) {
+    ArrayList<Uri> uris = new ArrayList<>();
+    ClipData clip = data.getClipData();
+    if (clip != null) {
+      for (int index = 0; index < clip.getItemCount(); index++) {
+        Uri uri = clip.getItemAt(index).getUri();
+        if (uri != null) {
+          uris.add(uri);
+        }
+      }
+      return uris;
+    }
+    if (data.getData() != null) {
+      uris.add(data.getData());
+    }
+    return uris;
+  }
+
+  /** 复制到应用缓存，页面用 convertFileSrc 读成 Blob 后立即删掉副本 */
+  private JSONArray copyDocumentsToCache(ArrayList<Uri> uris) {
+    JSONArray items = new JSONArray();
+    File dir = new File(getCacheDir(), ATTACHMENT_CACHE_DIR);
+    if (!dir.exists() && !dir.mkdirs()) {
+      return items;
+    }
+    for (Uri uri : uris) {
+      InputStream input = null;
+      try {
+        String name = queryDisplayName(uri);
+        String mime = getContentResolver().getType(uri);
+        File out = new File(dir, System.currentTimeMillis() + "-" + sanitizeFileName(name));
+        input = getContentResolver().openInputStream(uri);
+        if (input == null) {
+          continue;
+        }
+        try (OutputStream output = new FileOutputStream(out)) {
+          byte[] buffer = new byte[64 * 1024];
+          int read;
+          while ((read = input.read(buffer)) != -1) {
+            output.write(buffer, 0, read);
+          }
+        }
+        JSONObject item = new JSONObject();
+        item.put("name", name);
+        item.put("mime", mime == null ? "" : mime);
+        item.put("size", out.length());
+        item.put("path", out.getAbsolutePath());
+        items.put(item);
+      } catch (Exception ignored) {
+        // 单个文件读不出来不影响其它已选文件
+      } finally {
+        if (input != null) {
+          try {
+            input.close();
+          } catch (Exception ignored) {
+            // 关闭失败可以忽略
+          }
+        }
+      }
+    }
+    return items;
+  }
+
+  private String queryDisplayName(Uri uri) {
+    String name = uri.getLastPathSegment();
+    try (Cursor cursor =
+        getContentResolver()
+            .query(uri, new String[] {OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+      if (cursor != null && cursor.moveToFirst()) {
+        int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+        if (index >= 0) {
+          String value = cursor.getString(index);
+          if (value != null && !value.isEmpty()) {
+            name = value;
+          }
+        }
+      }
+    } catch (Exception ignored) {
+      // 部分 provider 不支持查询，退回 URI 末段
+    }
+    return name == null || name.isEmpty() ? "attachment" : name;
+  }
+
+  /** 文件名只用于缓存目录，去掉路径分隔符与 .. 防止越界 */
+  private String sanitizeFileName(String name) {
+    return name.replace("/", "_").replace("\\\\", "_").replace("..", "_");
+  }
+
   /** 物理像素换算成页面用的 CSS 像素（等于 dp）。 */
   private int toCssPixels(int pixels) {
     return Math.round(pixels / getResources().getDisplayMetrics().density);
@@ -270,6 +396,32 @@ public class MainActivity extends BridgeActivity {
                 "window.__fileOpenFailed&&window.__fileOpenFailed()", null));
   }
 
+  /** 原生文档选择完成，把缓存路径列表交给页面 */
+  private void notifyDocumentsPicked(String json) {
+    WebView webView = getBridge() == null ? null : getBridge().getWebView();
+    if (webView == null) {
+      return;
+    }
+    webView.post(
+        () ->
+            webView.evaluateJavascript(
+                "window.__nativeDocumentsPicked&&window.__nativeDocumentsPicked(" + json + ")",
+                null));
+  }
+
+  /** 系统里既没有 SAF 也没有内容选择器时通知页面，由页面回退到 <input> */
+  private void notifyDocumentsUnavailable() {
+    WebView webView = getBridge() == null ? null : getBridge().getWebView();
+    if (webView == null) {
+      return;
+    }
+    webView.post(
+        () ->
+            webView.evaluateJavascript(
+                "window.__nativeDocumentsUnavailable&&window.__nativeDocumentsUnavailable()",
+                null));
+  }
+
   private void applyIconTheme(boolean dark) {
     WindowInsetsControllerCompat controller =
         WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
@@ -333,6 +485,49 @@ public class MainActivity extends BridgeActivity {
               notifyFileOpenFailed();
             }
           });
+    }
+
+    /** 打开系统文档选择器（SAF）；没有 DocumentsUI 时退到 ACTION_GET_CONTENT */
+    @JavascriptInterface
+    public void pickDocuments() {
+      runOnUiThread(
+          () -> {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+            try {
+              startActivityForResult(intent, REQUEST_PICK_DOCUMENTS);
+              return;
+            } catch (ActivityNotFoundException ignored) {
+              // 极少数裁剪 ROM 没有 DocumentsUI
+            }
+            Intent fallback = new Intent(Intent.ACTION_GET_CONTENT);
+            fallback.addCategory(Intent.CATEGORY_OPENABLE);
+            fallback.setType("*/*");
+            fallback.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+            try {
+              startActivityForResult(fallback, REQUEST_PICK_DOCUMENTS);
+              return;
+            } catch (ActivityNotFoundException ignored) {
+              notifyDocumentsUnavailable();
+            }
+          });
+    }
+
+    /** 页面读完缓存副本后调用，避免大文件在缓存里堆积 */
+    @JavascriptInterface
+    public void deleteCachedDocument(String path) {
+      File dir = new File(getCacheDir(), ATTACHMENT_CACHE_DIR);
+      File file = new File(path);
+      try {
+        String dirPrefix = dir.getCanonicalPath() + File.separator;
+        if (file.getCanonicalPath().startsWith(dirPrefix)) {
+          file.delete();
+        }
+      } catch (Exception ignored) {
+        // 路径不合法时不处理
+      }
     }
   }
 }

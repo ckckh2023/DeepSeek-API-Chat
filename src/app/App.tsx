@@ -11,6 +11,7 @@ import {
 } from './viewport.js'
 import { isCapacitor } from './platform.js'
 import { setupSystemBars } from './systemBars.js'
+import { setupNativeDocuments } from './nativeDocuments.js'
 import { setupUpdateCheck } from '../services/update.js'
 import {
   bindChatPersistence,
@@ -83,6 +84,8 @@ export const App = () => {
 
   // 安卓端把真实安全区写进 CSS 变量，页面自己抬高底部、压低顶部
   useEffect(setupSystemBars, [])
+  // 原生 SAF 选完文件后回传缓存路径，页面侧在这里接住
+  useEffect(setupNativeDocuments, [])
   // 安卓系统返回键：设置 → 搜索结果 → 对话列表逐层关闭，最后才退出应用
   useEffect(setupSystemBack, [])
 

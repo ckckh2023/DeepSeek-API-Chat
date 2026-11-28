@@ -11,6 +11,10 @@ type SystemBarsBridge = {
   openExternal?: (url: string) => void
   /** 把缓存里的附件交给系统默认应用打开，失败时回调 window.__fileOpenFailed */
   openFile?: (uri: string, mimeType: string) => void
+  /** 打开系统文档选择器（SAF），结果回调 window.__nativeDocumentsPicked */
+  pickDocuments?: () => void
+  /** 删除原生缓存里的附件副本 */
+  deleteCachedDocument?: (path: string) => void
 }
 
 type Insets = { top: number; bottom: number }

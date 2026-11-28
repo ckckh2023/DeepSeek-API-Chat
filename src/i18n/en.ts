@@ -367,6 +367,7 @@ export const en = {
   attachmentCamera: 'Take photo',
   attachmentAlbum: 'Photo library',
   attachmentFiles: 'Files',
+  attachmentReadFailed: 'Unable to read the selected file. Please try again.',
   chatInputStopButtonTooltip: 'Stop',
   uploadMaxMBSize: 'File exceeds the size limit ({size} MB). Please adjust and try again.',
   uploadMaxFiles: 'You can upload up to {count} files',

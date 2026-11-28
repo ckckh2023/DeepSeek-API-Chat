@@ -39,6 +39,11 @@ import { useAnchoredPosition, useDismiss } from '../base/anchored.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { ensureApiKey } from '../settings/settingsDialogState.js'
 import { useMobileSider } from '../sider/mobileSiderState.js'
+import {
+  canPickNativeDocuments,
+  pickNativeDocuments,
+  readPickedDocument,
+} from '../../app/nativeDocuments.js'
 import { AttachmentSheet, type AttachmentSource } from './AttachmentSheet.js'
 import { DragMask, useFileDrop } from './DragMask.js'
 import { showToast } from '../base/toastState.js'
@@ -212,6 +217,24 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   /** 收起面板后同步触发隐藏 input：iOS 要求 click 仍发生在用户手势里 */
   const pickAttachment = (source: AttachmentSource) => {
     setAttachOpen(false)
+    if (source === 'files' && canPickNativeDocuments()) {
+      // 安卓优先走系统 SAF，拿到厂商「安全访问」的文件选择器；失败再由桥上通知回退
+      void pickNativeDocuments().then(async (result) => {
+        if (result.kind === 'unavailable') {
+          fileInputRef.current?.click()
+          return
+        }
+        if (result.kind === 'cancelled' || result.items.length === 0) {
+          return
+        }
+        try {
+          acceptFiles(await Promise.all(result.items.map(readPickedDocument)))
+        } catch {
+          showToast(t('attachmentReadFailed'))
+        }
+      })
+      return
+    }
     const input =
       source === 'camera'
         ? cameraInputRef.current

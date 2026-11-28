@@ -38,6 +38,7 @@ import { IconButton } from '../base/IconButton.js'
 import { useAnchoredPosition, useDismiss } from '../base/anchored.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { ensureApiKey } from '../settings/settingsDialogState.js'
+import { useMobileSider } from '../sider/mobileSiderState.js'
 import { AttachmentSheet, type AttachmentSource } from './AttachmentSheet.js'
 import { DragMask, useFileDrop } from './DragMask.js'
 import { showToast } from '../base/toastState.js'
@@ -70,6 +71,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const isMobile = useIsMobile()
   // 只有 Capacitor 打包的安卓 / iOS App 用三入口面板；手机网页版保持直接选文件
   const nativeAttach = isCapacitor()
+  // 移动端右滑拉出对话列表时，附件面板要立刻让位，不能停在抽屉上面
+  const siderActive = useMobileSider((state) => state.open || state.progress > 0)
   const search = useSettings((state) => state.search)
   const proMode = useChatMode((state) => state.mode === 'pro')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -77,6 +80,11 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const albumInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [attachOpen, setAttachOpen] = useState(false)
+  useEffect(() => {
+    if (siderActive) {
+      setAttachOpen(false)
+    }
+  }, [siderActive])
   const togglesRef = useRef<HTMLDivElement>(null)
   const thinkingEffort = useSettings((state) => state.thinkingEffort)
   const [effortOpen, setEffortOpen] = useState(false)
